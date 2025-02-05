@@ -1,0 +1,33 @@
+name: Publicar Noticias Caninas
+
+on:
+  schedule:
+    - cron: '0 8 * * *'  # Ejecutar todos los días a las 8 AM UTC
+  workflow_dispatch:  # Permite ejecutar el workflow manualmente
+
+jobs:
+  publish_news:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Run news script
+      env:
+        WP_URL: ${{ secrets.WP_URL }}
+        WP_USER: ${{ secrets.WP_USER }}
+        WP_PASSWORD: ${{ secrets.WP_PASSWORD }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      run: |
+        python /home/dileroc/Documentos/Chango/Poyectos/BigotesCaninos/dogs_automatics_news.py
