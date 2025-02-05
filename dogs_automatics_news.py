@@ -5,8 +5,8 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from wordpress_xmlrpc import Client, WordPressPost
 from wordpress_xmlrpc.methods.posts import NewPost
-from wordpress_xmlrpc.methods.taxonomies import GetTerms
 import openai
+import re
 
 # Cargar variables de entorno
 load_dotenv()
@@ -101,7 +101,18 @@ def generar_contenido_chatgpt(noticia):
         ]
     )
 
-    return response.choices[0].message.content.strip()
+    contenido = response.choices[0].message.content.strip()
+
+    # Asegurarse de que los encabezados h1, h2, h3 tengan la primera letra mayúscula y el resto minúscula
+    contenido = formatear_encabezados_html(contenido)
+    
+    return contenido
+
+def formatear_encabezados_html(contenido):
+    """Formatea los encabezados h1, h2 y h3 para que tengan la primera letra en mayúscula y el resto en minúscula."""
+    # Usar expresiones regulares para encontrar los encabezados h1, h2 y h3
+    contenido = re.sub(r'<h([1-3])>(.*?)</h\1>', lambda m: f'<h{m.group(1)}>{m.group(2).capitalize()}</h{m.group(1)}>', contenido)
+    return contenido
 
 def extraer_titulo(contenido):
     """Extrae un título llamativo del contenido"""
@@ -113,25 +124,9 @@ def extraer_titulo(contenido):
     return "Noticia sobre perros"  # Título genérico si no encuentra uno adecuado
 
 def publicar_noticias():
-    """Obtiene noticias, genera contenido y lo publica en WordPress en la categoría 'noticias'"""
+    """Obtiene noticias, genera contenido y lo publica en WordPress"""
     client = Client(WP_URL, WP_USER, WP_PASSWORD)
     noticias = obtener_noticias()
-
-    categoria_noticias_id = 157  # ID de la categoría "noticias"
-
-    # Obtener términos de la categoría
-    terms = client.call(GetTerms('category'))
-
-    # Asegurarse de que la categoría exista antes de intentar asignarla
-    categoria_noticias = None
-    for term in terms:
-        if term.id == categoria_noticias_id:
-            categoria_noticias = term
-            break
-
-    if not categoria_noticias:
-        logging.error("No se encontró la categoría con ID: %d", categoria_noticias_id)
-        return
 
     for noticia in noticias:
         contenido = generar_contenido_chatgpt(noticia)
@@ -141,16 +136,12 @@ def publicar_noticias():
         post.title = titulo
         post.content = contenido
         post.post_status = "publish"
-        
-        # Asignar la categoría correctamente
-        post.terms_names = {
-            'category': [categoria_noticias.name]  # Usamos el nombre de la categoría
-        }
-
-        # Publicar en WordPress
-        client.call(NewPost(post))
-
-        logging.info("Noticia publicada: %s con título: %s", noticia, titulo)
+        post.terms = {'category': [157]}  # Especifica la categoría con ID 157
+        try:
+            client.call(NewPost(post))
+            logging.info("Noticia publicada: %s con título: %s", noticia, titulo)
+        except Exception as e:
+            logging.error("Error al publicar la noticia: %s. Error: %s", noticia, e)
 
 if __name__ == "__main__":
     publicar_noticias()
