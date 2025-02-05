@@ -36,7 +36,7 @@ def obtener_noticias():
             if link not in historial:
                 noticias.append("https://www.eltiempo.com" + link)
         logging.info("Noticias obtenidas: %d", len(noticias))
-        return noticias[:5]  # Máximo 5 noticias nuevas
+        return noticias[:5]  # Máximo 5 noticias de las nuevas
     except requests.exceptions.RequestException as e:
         logging.error("Error al obtener noticias: %s", e)
         return []
