@@ -31,77 +31,82 @@ def obtener_noticias():
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
         noticias = []
-        
         for articulo in soup.find_all("article"):
-            link_tag = articulo.find("a")
-            titulo_tag = articulo.find("h2") or articulo.find("h3")
-            
-            if link_tag and titulo_tag:
-                link = link_tag["href"]
-                titulo = titulo_tag.text.strip()
-                
-                if link not in historial:
-                    noticias.append({"titulo": titulo, "link": "https://www.eltiempo.com" + link})
-
+            link = articulo.find("a")["href"]
+            if link not in historial:
+                noticias.append("https://www.eltiempo.com" + link)
         logging.info("Noticias obtenidas: %d", len(noticias))
-        return noticias[:5]  # Máximo 5 noticias nuevas
+        return noticias[:5]  # Máximo 5 noticias de las nuevas
     except requests.exceptions.RequestException as e:
         logging.error("Error al obtener noticias: %s", e)
         return []
 
 def generar_contenido_chatgpt(noticia):
-    client = openai.OpenAI(api_key=OPENAI_API_KEY)
+    client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))  # Crear cliente correctamente
 
     prompt = f"""
-    actúa como un redactor experto en seo y en contenido sobre mascotas. 
-    a partir de la siguiente noticia sobre perros: "{noticia['titulo']}" ({noticia['link']}), analiza la información y escribe un artículo original y bien estructurado. 
-    no copies la noticia, sino que extrae los puntos clave y explica la información de forma clara para personas interesadas en el mundo canino.
+    Actúa como un redactor experto en SEO y en contenido sobre mascotas. 
+    A partir de la siguiente noticia sobre perros: {noticia}, analiza la información y escribe un artículo original y bien estructurado. 
+    No copies la noticia, sino que extrae los puntos clave y explica la información de forma clara para personas interesadas en el mundo canino.
 
-    el artículo debe:
-    - no incluir secciones con títulos como "introducción" o "conclusión"
-    - usar títulos en minúsculas
-    - estar en formato html con etiquetas semánticas y optimizado para seo
-    - tener una extensión entre 1000 y 1500 palabras
-    - usar un tono informativo, profesional y atractivo
+    El artículo debe incluir:
+    - Una introducción que explique la noticia y su relevancia.
+    - Un análisis sobre el impacto que puede tener en dueños de mascotas, veterinarios y la industria del cuidado animal.
+    - Referencias a estudios o tendencias relacionadas.
+    - Respuestas a preguntas clave como: 
+        * ¿Por qué esta noticia es importante?
+        * ¿Cómo afecta a la vida diaria de los dueños de perros?
+        * ¿Qué acciones pueden tomar al respecto?
+
+    Al final, incluye una conclusión con un resumen de los puntos más importantes y recomendaciones prácticas para dueños de perros.
+
+    Formato del artículo:
+    - Debe estar en HTML con etiquetas semánticas y optimizado para SEO.
+    - No incluyas títulos genéricos como "introducción" o "conclusión".
+    - Usa títulos llamativos y cortos (máximo 10 palabras).
+    - Todos los títulos deben estar en minúscula, excepto la primera letra de cada uno.
+    - La extensión debe ser entre 1000 y 1500 palabras.
+    - Usa un tono informativo, profesional y atractivo.
     """
-
+    
     response = client.chat.completions.create(
-        model="gpt-4-turbo",
+        model="gpt-4",
         messages=[
-            {"role": "system", "content": "eres un asistente útil."},
+            {"role": "system", "content": "Eres un asistente útil."},
             {"role": "user", "content": prompt}
         ]
     )
 
     return response.choices[0].message.content.strip()
 
-def procesar_texto_html(html):
-    """Convierte títulos en minúsculas y elimina secciones como 'introducción' o 'conclusión'."""
-    soup = BeautifulSoup(html, "html.parser")
-
-    for tag in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6"]):
-        if tag.text.strip().lower() in ["introducción", "conclusión"]:
-            tag.decompose()  # Elimina el título si es 'introducción' o 'conclusión'
-        else:
-            tag.string = tag.text.lower()  # Convierte a minúsculas
-
-    return str(soup)
+def limpiar_titulo(titulo):
+    """
+    Formatea el título asegurando que:
+    - No sea muy largo (máximo 10 palabras)
+    - Esté en minúscula, excepto la primera letra
+    """
+    palabras = titulo.split()
+    if len(palabras) > 10:
+        palabras = palabras[:10]  # Limita a 10 palabras
+    titulo_final = " ".join(palabras).lower().capitalize()
+    return titulo_final
 
 def publicar_noticias():
     client = Client(WP_URL, WP_USER, WP_PASSWORD)
     noticias = obtener_noticias()
-
     for noticia in noticias:
         contenido = generar_contenido_chatgpt(noticia)
-        contenido_procesado = procesar_texto_html(contenido)
+
+        # Extraer título desde el contenido (primer H1 o generar uno)
+        titulo_generado = contenido.split("\n")[0]  # Suponiendo que el primer párrafo es el título
+        titulo = limpiar_titulo(titulo_generado)
 
         post = WordPressPost()
-        post.title = noticia["titulo"].lower()  # Asegurar que el título esté en minúsculas
-        post.content = contenido_procesado
+        post.title = titulo
+        post.content = contenido
         post.post_status = "publish"
-
         client.call(NewPost(post))
-        logging.info("Noticia publicada: %s", noticia["titulo"])
+        logging.info("Noticia publicada: %s con título: %s", noticia, titulo)
 
 if __name__ == "__main__":
     publicar_noticias()
