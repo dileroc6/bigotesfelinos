@@ -22,6 +22,9 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # Configuración de OpenAI
 openai.api_key = OPENAI_API_KEY
 
+# Inicializar historial (puede ser una lista vacía o cargada desde un archivo)
+historial = []
+
 def obtener_noticias():
     try:
         response = requests.get("https://www.eltiempo.com/noticias/perros")
