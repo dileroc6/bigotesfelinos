@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from wordpress_xmlrpc import Client, WordPressPost
 from wordpress_xmlrpc.methods.posts import NewPost
+from wordpress_xmlrpc.methods.taxonomies import GetTerms
 import openai
 
 # Cargar variables de entorno
@@ -115,8 +116,22 @@ def publicar_noticias():
     """Obtiene noticias, genera contenido y lo publica en WordPress en la categoría 'noticias'"""
     client = Client(WP_URL, WP_USER, WP_PASSWORD)
     noticias = obtener_noticias()
-    
+
     categoria_noticias_id = 157  # ID de la categoría "noticias"
+
+    # Obtener términos de la categoría
+    terms = client.call(GetTerms('category'))
+
+    # Asegurarse de que la categoría exista antes de intentar asignarla
+    categoria_noticias = None
+    for term in terms:
+        if term.id == categoria_noticias_id:
+            categoria_noticias = term
+            break
+
+    if not categoria_noticias:
+        logging.error("No se encontró la categoría con ID: %d", categoria_noticias_id)
+        return
 
     for noticia in noticias:
         contenido = generar_contenido_chatgpt(noticia)
@@ -127,9 +142,9 @@ def publicar_noticias():
         post.content = contenido
         post.post_status = "publish"
         
-        # Asignar la categoría "noticias" usando su ID
-        post.terms = {
-            'category': [categoria_noticias_id]  # Usamos el ID de la categoría en lugar del nombre
+        # Asignar la categoría correctamente
+        post.terms_names = {
+            'category': [categoria_noticias.name]  # Usamos el nombre de la categoría
         }
 
         # Publicar en WordPress
