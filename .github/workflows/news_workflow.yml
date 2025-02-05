@@ -33,7 +33,7 @@ jobs:
           WP_PASSWORD: ${{ secrets.WP_PASSWORD }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          python news_workflow.py
+          python dogs_automatics_news.py
 
       - name: Guardar logs como artefactos
         uses: actions/upload-artifact@v4
