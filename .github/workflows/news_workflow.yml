@@ -20,11 +20,20 @@ jobs:
 
       - name: Instalar dependencias
         run: |
+          python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Crear archivo de log vacío (si no existe)
         run: |
           touch proceso_noticias.log
+
+      - name: Verificar instalación de dependencias
+        run: |
+          pip freeze > installed_packages.txt
+          if ! grep -Fxq "requests" installed_packages.txt || ! grep -Fxq "openai" installed_packages.txt; then
+            echo "Error: Falta instalar dependencias requeridas." >&2
+            exit 1
+          fi
 
       - name: Ejecutar script de publicación
         env:
@@ -33,7 +42,7 @@ jobs:
           WP_PASSWORD: ${{ secrets.WP_PASSWORD }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          python dogs_automatics_news.py
+          python dogs_automatics_news.py || { echo "Error en el script de publicación." >> proceso_noticias.log; exit 1; }
 
       - name: Guardar logs como artefactos
         uses: actions/upload-artifact@v4
