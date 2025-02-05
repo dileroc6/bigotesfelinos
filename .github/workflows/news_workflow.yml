@@ -11,7 +11,7 @@ jobs:
 
     steps:
       - name: Checkout del repositorio
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Configurar Python
         uses: actions/setup-python@v4
@@ -29,9 +29,16 @@ jobs:
 
       - name: Verificar instalación de dependencias
         run: |
-          pip freeze > installed_packages.txt
-          if ! grep -Fxq "requests" installed_packages.txt || ! grep -Fxq "openai" installed_packages.txt; then
-            echo "Error: Falta instalar dependencias requeridas." >&2
+          missing_packages=()
+          for package in $(cat requirements.txt | cut -d'=' -f1); do
+            if ! pip show $package > /dev/null 2>&1; then
+              missing_packages+=("$package")
+            fi
+          done
+          
+          if [ ${#missing_packages[@]} -ne 0 ]; then
+            echo "Error: Faltan instalar las siguientes dependencias:" >&2
+            printf '%s\n' "${missing_packages[@]}" >&2
             exit 1
           fi
 
