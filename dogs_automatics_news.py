@@ -42,16 +42,19 @@ def obtener_noticias():
         return []
 
 def generar_contenido_chatgpt(noticia):
+    client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))  # Crear cliente correctamente
+
     prompt = f"Escribe un resumen sobre la siguiente noticia: {noticia}"
-    response = openai.ChatCompletion.create(  # Ahora se usa `openai.client.completions.create`
+    
+    response = client.chat.completions.create(  # Nueva forma de llamar la API
         model="gpt-3.5-turbo",
         messages=[
             {"role": "system", "content": "Eres un asistente útil."},
             {"role": "user", "content": prompt}
         ]
     )
-    return response["choices"][0]["message"]["content"].strip()
 
+    return response.choices[0].message.content.strip()  # Acceder correctamente al contenido
 
 def publicar_noticias():
     client = Client(WP_URL, WP_USER, WP_PASSWORD)
