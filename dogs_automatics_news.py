@@ -43,15 +43,12 @@ def obtener_noticias():
 
 def generar_contenido_chatgpt(noticia):
     prompt = f"Escribe un resumen sobre la siguiente noticia: {noticia}"
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "Eres un asistente útil."},
-            {"role": "user", "content": prompt}
-        ],
+    response = openai.Completion.create(
+        model="text-davinci-003",
+        prompt=prompt,
         max_tokens=150
     )
-    return response.choices[0].message['content'].strip()
+    return response.choices[0].text.strip()
 
 def publicar_noticias():
     client = Client(WP_URL, WP_USER, WP_PASSWORD)
