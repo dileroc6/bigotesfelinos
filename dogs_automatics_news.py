@@ -5,7 +5,6 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from wordpress_xmlrpc import Client, WordPressPost
 from wordpress_xmlrpc.methods.posts import NewPost
-from wordpress_xmlrpc.methods.taxonomies import GetTerms
 import openai
 
 # Cargar variables de entorno
@@ -67,6 +66,8 @@ def obtener_noticias():
 
 def generar_contenido_chatgpt(noticia):
     """Genera contenido optimizado para SEO basado en la noticia"""
+    client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
     prompt = f"""
     Actúa como un redactor experto en SEO y en contenido sobre mascotas. 
     A partir de la siguiente noticia sobre perros: {noticia}, analiza la información y escribe un artículo original y bien estructurado. 
@@ -91,18 +92,18 @@ def generar_contenido_chatgpt(noticia):
     Los títulos deben ser cortos y llamativos, en minúsculas excepto la primera letra.
     """
     
-    response = openai.Completion.create(
-        model="text-davinci-003",
-        prompt=prompt,
-        max_tokens=1500,
-        temperature=0.7,
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": "Eres un asistente experto en redacción de artículos SEO."},
+            {"role": "user", "content": prompt}
+        ]
     )
 
-    return response.choices[0].text.strip()
+    return response.choices[0].message.content.strip()
 
 def extraer_titulo(contenido):
     """Extrae un título llamativo del contenido"""
-    # Asegurarse de que el primer título sea apropiado
     primeras_lineas = contenido.split("\n")[:3]  # Tomar las primeras líneas
     for linea in primeras_lineas:
         linea = linea.strip()
@@ -110,27 +111,10 @@ def extraer_titulo(contenido):
             return linea.capitalize()  # Primera letra en mayúscula, resto en minúscula
     return "Noticia sobre perros"  # Título genérico si no encuentra uno adecuado
 
-def obtener_categoria_noticias():
-    """Obtiene el ID de la categoría 'Noticias' en WordPress"""
-    client = Client(WP_URL, WP_USER, WP_PASSWORD)
-    try:
-        terms = client.call(GetTerms('category'))
-        for term in terms:
-            if term.name.lower() == "noticias":
-                return term.id
-        logging.error("Categoría 'Noticias' no encontrada.")
-    except Exception as e:
-        logging.error(f"Error al obtener categorías: {e}")
-    return None
-
 def publicar_noticias():
     """Obtiene noticias, genera contenido y lo publica en WordPress"""
     client = Client(WP_URL, WP_USER, WP_PASSWORD)
     noticias = obtener_noticias()
-
-    categoria_id = obtener_categoria_noticias()
-    if not categoria_id:
-        return
 
     for noticia in noticias:
         contenido = generar_contenido_chatgpt(noticia)
@@ -140,7 +124,6 @@ def publicar_noticias():
         post.title = titulo
         post.content = contenido
         post.post_status = "publish"
-        post.terms = {'category': [categoria_id]}  # Asignar a la categoría "Noticias"
         client.call(NewPost(post))
 
         logging.info("Noticia publicada: %s con título: %s", noticia, titulo)
