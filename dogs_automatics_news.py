@@ -112,9 +112,11 @@ def extraer_titulo(contenido):
     return "Noticia sobre perros"  # Título genérico si no encuentra uno adecuado
 
 def publicar_noticias():
-    """Obtiene noticias, genera contenido y lo publica en WordPress"""
+    """Obtiene noticias, genera contenido y lo publica en WordPress en la categoría 'noticias'"""
     client = Client(WP_URL, WP_USER, WP_PASSWORD)
     noticias = obtener_noticias()
+    
+    categoria_noticias_id = 157  # ID de la categoría "noticias"
 
     for noticia in noticias:
         contenido = generar_contenido_chatgpt(noticia)
@@ -124,6 +126,13 @@ def publicar_noticias():
         post.title = titulo
         post.content = contenido
         post.post_status = "publish"
+        
+        # Asignar la categoría "noticias" usando su ID
+        post.terms = {
+            'category': [categoria_noticias_id]  # Usamos el ID de la categoría en lugar del nombre
+        }
+
+        # Publicar en WordPress
         client.call(NewPost(post))
 
         logging.info("Noticia publicada: %s con título: %s", noticia, titulo)
