@@ -30,4 +30,4 @@ jobs:
         WP_PASSWORD: ${{ secrets.WP_PASSWORD }}
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       run: |
-        python /home/dileroc/Documentos/Chango/Poyectos/BigotesCaninos/dogs_automatics_news.py
+        python dogs_automatics_news.py
