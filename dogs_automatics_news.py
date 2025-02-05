@@ -42,6 +42,7 @@ def guardar_historial(nuevas_noticias):
 def obtener_noticias():
     """Obtiene noticias nuevas de El Tiempo"""
     try:
+        logging.info("Obteniendo noticias de El Tiempo...")
         response = requests.get("https://www.eltiempo.com/noticias/perros")
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
@@ -57,8 +58,11 @@ def obtener_noticias():
 
         noticias = noticias[:2]  # Máximo 2 noticias nuevas por ejecución
         guardar_historial(noticias)  # Guardar en historial
-        logging.info("Noticias obtenidas: %d", len(noticias))
 
+        logging.info("Noticias obtenidas: %d", len(noticias))
+        if not noticias:
+            logging.warning("No se encontraron noticias nuevas para procesar.")
+        
         return noticias
 
     except requests.exceptions.RequestException as e:
@@ -91,59 +95,86 @@ def generar_contenido_chatgpt(noticia):
     Los títulos deben ser cortos y llamativos, en minúsculas excepto la primera letra.
     """
     
-    response = openai.Completion.create(
-        model="text-davinci-003",
-        prompt=prompt,
-        max_tokens=1500,
-        temperature=0.7,
-    )
-
-    return response.choices[0].text.strip()
+    try:
+        logging.info("Generando contenido con ChatGPT para la noticia: %s", noticia)
+        response = openai.Completion.create(
+            model="text-davinci-003",
+            prompt=prompt,
+            max_tokens=1500,
+            temperature=0.7,
+        )
+        contenido = response.choices[0].text.strip()
+        logging.info("Contenido generado con éxito.")
+        return contenido
+    except Exception as e:
+        logging.error("Error al generar contenido con ChatGPT: %s", e)
+        return ""
 
 def extraer_titulo(contenido):
     """Extrae un título llamativo del contenido"""
-    # Asegurarse de que el primer título sea apropiado
-    primeras_lineas = contenido.split("\n")[:3]  # Tomar las primeras líneas
-    for linea in primeras_lineas:
-        linea = linea.strip()
-        if 20 <= len(linea) <= 80:  # Títulos entre 20 y 80 caracteres
-            return linea.capitalize()  # Primera letra en mayúscula, resto en minúscula
-    return "Noticia sobre perros"  # Título genérico si no encuentra uno adecuado
+    try:
+        # Asegurarse de que el primer título sea apropiado
+        primeras_lineas = contenido.split("\n")[:3]  # Tomar las primeras líneas
+        for linea in primeras_lineas:
+            linea = linea.strip()
+            if 20 <= len(linea) <= 80:  # Títulos entre 20 y 80 caracteres
+                return linea.capitalize()  # Primera letra en mayúscula, resto en minúscula
+        logging.warning("No se encontró un título adecuado, se usará uno genérico.")
+        return "Noticia sobre perros"  # Título genérico si no encuentra uno adecuado
+    except Exception as e:
+        logging.error("Error al extraer título: %s", e)
+        return "Noticia sobre perros"
 
 def obtener_categoria_noticias():
     """Obtiene el ID de la categoría 'Noticias' en WordPress"""
-    client = Client(WP_URL, WP_USER, WP_PASSWORD)
     try:
+        logging.info("Obteniendo categorías de WordPress...")
+        client = Client(WP_URL, WP_USER, WP_PASSWORD)
         terms = client.call(GetTerms('category'))
         for term in terms:
             if term.name.lower() == "noticias":
+                logging.info("Categoría 'Noticias' encontrada.")
                 return term.id
-        logging.error("Categoría 'Noticias' no encontrada.")
+        logging.warning("Categoría 'Noticias' no encontrada.")
+        return None
     except Exception as e:
-        logging.error(f"Error al obtener categorías: {e}")
-    return None
+        logging.error("Error al obtener categorías: %s", e)
+        return None
 
 def publicar_noticias():
     """Obtiene noticias, genera contenido y lo publica en WordPress"""
-    client = Client(WP_URL, WP_USER, WP_PASSWORD)
-    noticias = obtener_noticias()
+    try:
+        logging.info("Iniciando el proceso de publicación...")
+        client = Client(WP_URL, WP_USER, WP_PASSWORD)
+        noticias = obtener_noticias()
 
-    categoria_id = obtener_categoria_noticias()
-    if not categoria_id:
-        return
+        if not noticias:
+            logging.warning("No hay noticias nuevas para publicar.")
+            return
 
-    for noticia in noticias:
-        contenido = generar_contenido_chatgpt(noticia)
-        titulo = extraer_titulo(contenido)
+        categoria_id = obtener_categoria_noticias()
+        if not categoria_id:
+            logging.warning("No se pudo obtener la categoría 'Noticias'.")
+            return
 
-        post = WordPressPost()
-        post.title = titulo
-        post.content = contenido
-        post.post_status = "publish"
-        post.terms = {'category': [categoria_id]}  # Asignar a la categoría "Noticias"
-        client.call(NewPost(post))
+        for noticia in noticias:
+            contenido = generar_contenido_chatgpt(noticia)
+            if contenido:
+                titulo = extraer_titulo(contenido)
 
-        logging.info("Noticia publicada: %s con título: %s", noticia, titulo)
+                post = WordPressPost()
+                post.title = titulo
+                post.content = contenido
+                post.post_status = "publish"
+                post.terms = {'category': [categoria_id]}  # Asignar a la categoría "Noticias"
+                client.call(NewPost(post))
+
+                logging.info("Noticia publicada: %s con título: %s", noticia, titulo)
+            else:
+                logging.error("No se generó contenido para la noticia: %s", noticia)
+
+    except Exception as e:
+        logging.error("Error en el proceso de publicación: %s", e)
 
 if __name__ == "__main__":
     publicar_noticias()
