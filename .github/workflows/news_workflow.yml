@@ -1,149 +1,44 @@
-import os
-import logging
-import requests
-from bs4 import BeautifulSoup
-from dotenv import load_dotenv
-from wordpress_xmlrpc import Client, WordPressPost
-from wordpress_xmlrpc.methods.posts import NewPost
-from wordpress_xmlrpc.methods.taxonomies import GetTerms
-import openai
+name: Publicar noticias en WordPress
 
-# Cargar variables de entorno
-load_dotenv()
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 12 * * *"  # Se ejecuta todos los días a las 12:00 UTC
 
-# Configuración de logging
-logging.basicConfig(filename="proceso_noticias.log", level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
 
-# Configuración de WordPress
-WP_URL = os.getenv("WP_URL")
-WP_USER = os.getenv("WP_USER")
-WP_PASSWORD = os.getenv("WP_PASSWORD")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v3
 
-# Configuración de OpenAI
-openai.api_key = OPENAI_API_KEY
+      - name: Configurar Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
 
-# Archivo de historial para evitar noticias repetidas
-HISTORIAL_FILE = "historial.txt"
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
 
-def cargar_historial():
-    """Carga el historial de noticias publicadas desde un archivo"""
-    if os.path.exists(HISTORIAL_FILE):
-        with open(HISTORIAL_FILE, "r", encoding="utf-8") as file:
-            return set(file.read().splitlines())
-    return set()
+      - name: Crear archivo de log vacío (si no existe)
+        run: |
+          touch proceso_noticias.log
 
-def guardar_historial(nuevas_noticias):
-    """Guarda nuevas noticias en el historial"""
-    with open(HISTORIAL_FILE, "a", encoding="utf-8") as file:
-        for noticia in nuevas_noticias:
-            file.write(noticia + "\n")
+      - name: Ejecutar script de publicación
+        env:
+          WP_URL: ${{ secrets.WP_URL }}
+          WP_USER: ${{ secrets.WP_USER }}
+          WP_PASSWORD: ${{ secrets.WP_PASSWORD }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python dogs_automatics_news.py || { echo "Error en el script de publicación." >> proceso_noticias.log; exit 1; }
 
-def obtener_noticias():
-    """Obtiene noticias nuevas de El Tiempo"""
-    try:
-        response = requests.get("https://www.eltiempo.com/noticias/perros")
-        response.raise_for_status()
-        soup = BeautifulSoup(response.text, "html.parser")
-
-        noticias = []
-        historial = cargar_historial()
-
-        for articulo in soup.find_all("article"):
-            link = articulo.find("a")["href"]
-            noticia_url = "https://www.eltiempo.com" + link
-            if noticia_url not in historial:  # Evitar noticias repetidas
-                noticias.append(noticia_url)
-
-        noticias = noticias[:2]  # Máximo 2 noticias nuevas por ejecución
-        guardar_historial(noticias)  # Guardar en historial
-        logging.info("Noticias obtenidas: %d", len(noticias))
-
-        return noticias
-
-    except requests.exceptions.RequestException as e:
-        logging.error("Error al obtener noticias: %s", e)
-        return []
-
-def generar_contenido_chatgpt(noticia):
-    """Genera contenido optimizado para SEO basado en la noticia"""
-    prompt = f"""
-    Actúa como un redactor experto en SEO y en contenido sobre mascotas. 
-    A partir de la siguiente noticia sobre perros: {noticia}, analiza la información y escribe un artículo original y bien estructurado. 
-    No copies la noticia, sino que extrae los puntos clave y explica la información de forma clara para personas interesadas en el mundo canino.
-
-    El artículo debe incluir:
-    - Una introducción llamativa sin el título "introducción".
-    - Un análisis sobre el impacto en dueños de mascotas, veterinarios y la industria del cuidado animal.
-    - Referencias a estudios o tendencias relacionadas.
-    - Respuestas a preguntas clave como: 
-        * ¿Por qué esta noticia es importante?
-        * ¿Cómo afecta a la vida diaria de los dueños de perros?
-        * ¿Qué acciones pueden tomar al respecto?
-
-    Al final, incluye una conclusión con un resumen de los puntos más importantes y recomendaciones prácticas para dueños de perros, pero sin el título "conclusión".
-
-    Además, incluye al menos una vez una referencia a la fuente de la noticia de manera natural, con un hipervínculo a: 
-    <a href='https://www.eltiempo.com/noticias/perros' target='_blank'>El Tiempo</a>
-
-    El artículo debe estar en formato HTML con etiquetas semánticas y optimizado para SEO. 
-    La extensión debe ser entre 1000 y 1500 palabras. Usa un tono informativo, profesional y atractivo.
-    Los títulos deben ser cortos y llamativos, en minúsculas excepto la primera letra.
-    """
-    
-    response = openai.Completion.create(
-        model="text-davinci-003",
-        prompt=prompt,
-        max_tokens=1500,
-        temperature=0.7,
-    )
-
-    return response.choices[0].text.strip()
-
-def extraer_titulo(contenido):
-    """Extrae un título llamativo del contenido"""
-    # Asegurarse de que el primer título sea apropiado
-    primeras_lineas = contenido.split("\n")[:3]  # Tomar las primeras líneas
-    for linea in primeras_lineas:
-        linea = linea.strip()
-        if 20 <= len(linea) <= 80:  # Títulos entre 20 y 80 caracteres
-            return linea.capitalize()  # Primera letra en mayúscula, resto en minúscula
-    return "Noticia sobre perros"  # Título genérico si no encuentra uno adecuado
-
-def obtener_categoria_noticias():
-    """Obtiene el ID de la categoría 'Noticias' en WordPress"""
-    client = Client(WP_URL, WP_USER, WP_PASSWORD)
-    try:
-        terms = client.call(GetTerms('category'))
-        for term in terms:
-            if term.name.lower() == "noticias":
-                return term.id
-        logging.error("Categoría 'Noticias' no encontrada.")
-    except Exception as e:
-        logging.error(f"Error al obtener categorías: {e}")
-    return None
-
-def publicar_noticias():
-    """Obtiene noticias, genera contenido y lo publica en WordPress"""
-    client = Client(WP_URL, WP_USER, WP_PASSWORD)
-    noticias = obtener_noticias()
-
-    categoria_id = obtener_categoria_noticias()
-    if not categoria_id:
-        return
-
-    for noticia in noticias:
-        contenido = generar_contenido_chatgpt(noticia)
-        titulo = extraer_titulo(contenido)
-
-        post = WordPressPost()
-        post.title = titulo
-        post.content = contenido
-        post.post_status = "publish"
-        post.terms = {'category': [categoria_id]}  # Asignar a la categoría "Noticias"
-        client.call(NewPost(post))
-
-        logging.info("Noticia publicada: %s con título: %s", noticia, titulo)
-
-if __name__ == "__main__":
-    publicar_noticias()
+      - name: Guardar logs como artefactos
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-publicacion
+          path: proceso_noticias.log
+          retention-days: 7
