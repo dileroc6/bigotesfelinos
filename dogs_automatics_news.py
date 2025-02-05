@@ -42,19 +42,35 @@ def obtener_noticias():
         return []
 
 def generar_contenido_chatgpt(noticia):
-    client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))  # Crear cliente correctamente
+    prompt = f"""
+    Actúa como un redactor experto en SEO y en contenido sobre mascotas. 
+    A partir de la siguiente noticia sobre perros: {noticia}, analiza la información y escribe un artículo original y bien estructurado. 
+    No copies la noticia, sino que extrae los puntos clave y explica la información de forma clara para personas interesadas en el mundo canino.
 
-    prompt = f"Escribe un resumen sobre la siguiente noticia: {noticia}"
-    
-    response = client.chat.completions.create(  # Nueva forma de llamar la API
-        model="gpt-3.5-turbo",
+    El artículo debe incluir:
+    - Una introducción que explique la noticia y su relevancia.
+    - Un análisis sobre el impacto que puede tener en dueños de mascotas, veterinarios y la industria del cuidado animal.
+    - Referencias a estudios o tendencias relacionadas.
+    - Respuestas a preguntas clave como: 
+        * ¿Por qué esta noticia es importante?
+        * ¿Cómo afecta a la vida diaria de los dueños de perros?
+        * ¿Qué acciones pueden tomar al respecto?
+
+    Al final, incluye una conclusión con un resumen de los puntos más importantes y recomendaciones prácticas para dueños de perros.
+
+    El artículo debe estar en formato HTML con etiquetas semánticas y optimizado para SEO. 
+    La extensión debe ser entre 1000 y 1500 palabras. Usa un tono informativo, profesional y atractivo.
+    """
+
+    response = openai.client.chat.completions.create(
+        model="gpt-4-turbo",
         messages=[
-            {"role": "system", "content": "Eres un asistente útil."},
+            {"role": "system", "content": "Eres un redactor experto en SEO y en contenido sobre mascotas."},
             {"role": "user", "content": prompt}
         ]
     )
 
-    return response.choices[0].message.content.strip()  # Acceder correctamente al contenido
+    return response.choices[0].message.content
 
 def publicar_noticias():
     client = Client(WP_URL, WP_USER, WP_PASSWORD)
