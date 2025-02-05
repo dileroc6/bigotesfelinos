@@ -23,6 +23,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         pip install --upgrade openai
+        pip install requests beautifulsoup4
 
     - name: Run news script
       env:

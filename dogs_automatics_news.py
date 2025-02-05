@@ -31,63 +31,77 @@ def obtener_noticias():
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
         noticias = []
+        
         for articulo in soup.find_all("article"):
-            link = articulo.find("a")["href"]
-            if link not in historial:
-                noticias.append("https://www.eltiempo.com" + link)
+            link_tag = articulo.find("a")
+            titulo_tag = articulo.find("h2") or articulo.find("h3")
+            
+            if link_tag and titulo_tag:
+                link = link_tag["href"]
+                titulo = titulo_tag.text.strip()
+                
+                if link not in historial:
+                    noticias.append({"titulo": titulo, "link": "https://www.eltiempo.com" + link})
+
         logging.info("Noticias obtenidas: %d", len(noticias))
-        return noticias[:5]  # Máximo 5 noticias de las nuevas
+        return noticias[:5]  # Máximo 5 noticias nuevas
     except requests.exceptions.RequestException as e:
         logging.error("Error al obtener noticias: %s", e)
         return []
 
 def generar_contenido_chatgpt(noticia):
-    client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY")) 
+    client = openai.OpenAI(api_key=OPENAI_API_KEY)
 
     prompt = f"""
-    Actúa como un redactor experto en SEO y en contenido sobre mascotas. 
-    A partir de la siguiente noticia sobre perros: {noticia}, analiza la información y escribe un artículo original y bien estructurado. 
-    No copies la noticia, sino que extrae los puntos clave y explica la información de forma clara para personas interesadas en el mundo canino.
+    actúa como un redactor experto en seo y en contenido sobre mascotas. 
+    a partir de la siguiente noticia sobre perros: "{noticia['titulo']}" ({noticia['link']}), analiza la información y escribe un artículo original y bien estructurado. 
+    no copies la noticia, sino que extrae los puntos clave y explica la información de forma clara para personas interesadas en el mundo canino.
 
-    - Genera un título llamativo y optimizado para SEO, de máximo 60 caracteres.
-    - Escribe el contenido en HTML con etiquetas semánticas y optimización para SEO.
-    - El artículo debe tener entre 1000 y 1500 palabras.
-
-    Responde en formato JSON con `titulo` y `contenido`.
+    el artículo debe:
+    - no incluir secciones con títulos como "introducción" o "conclusión"
+    - usar títulos en minúsculas
+    - estar en formato html con etiquetas semánticas y optimizado para seo
+    - tener una extensión entre 1000 y 1500 palabras
+    - usar un tono informativo, profesional y atractivo
     """
 
     response = client.chat.completions.create(
         model="gpt-4-turbo",
         messages=[
-            {"role": "system", "content": "Eres un asistente útil."},
+            {"role": "system", "content": "eres un asistente útil."},
             {"role": "user", "content": prompt}
         ]
     )
 
-    resultado = response.choices[0].message.content.strip()
-    
-    # Convertir JSON a diccionario
-    import json
-    data = json.loads(resultado)
+    return response.choices[0].message.content.strip()
 
-    return data["titulo"], data["contenido"]
+def procesar_texto_html(html):
+    """Convierte títulos en minúsculas y elimina secciones como 'introducción' o 'conclusión'."""
+    soup = BeautifulSoup(html, "html.parser")
 
+    for tag in soup.find_all(["h1", "h2", "h3", "h4", "h5", "h6"]):
+        if tag.text.strip().lower() in ["introducción", "conclusión"]:
+            tag.decompose()  # Elimina el título si es 'introducción' o 'conclusión'
+        else:
+            tag.string = tag.text.lower()  # Convierte a minúsculas
+
+    return str(soup)
 
 def publicar_noticias():
     client = Client(WP_URL, WP_USER, WP_PASSWORD)
     noticias = obtener_noticias()
-    
-    for noticia in noticias:
-        titulo, contenido = generar_contenido_chatgpt(noticia)
-        
-        post = WordPressPost()
-        post.title = titulo  # Título generado por ChatGPT
-        post.content = contenido
-        post.post_status = "publish"
-        
-        client.call(NewPost(post))
-        logging.info("Noticia publicada: %s", titulo)
 
+    for noticia in noticias:
+        contenido = generar_contenido_chatgpt(noticia)
+        contenido_procesado = procesar_texto_html(contenido)
+
+        post = WordPressPost()
+        post.title = noticia["titulo"].lower()  # Asegurar que el título esté en minúsculas
+        post.content = contenido_procesado
+        post.post_status = "publish"
+
+        client.call(NewPost(post))
+        logging.info("Noticia publicada: %s", noticia["titulo"])
 
 if __name__ == "__main__":
     publicar_noticias()
