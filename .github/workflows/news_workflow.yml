@@ -27,21 +27,6 @@ jobs:
         run: |
           touch proceso_noticias.log
 
-      - name: Verificar instalación de dependencias
-        run: |
-          missing_packages=()
-          for package in $(cat requirements.txt | cut -d'=' -f1); do
-            if ! pip show $package > /dev/null 2>&1; then
-              missing_packages+=("$package")
-            fi
-          done
-          
-          if [ ${#missing_packages[@]} -ne 0 ]; then
-            echo "Error: Faltan instalar las siguientes dependencias:" >&2
-            printf '%s\n' "${missing_packages[@]}" >&2
-            exit 1
-          fi
-
       - name: Ejecutar script de publicación
         env:
           WP_URL: ${{ secrets.WP_URL }}
