@@ -136,12 +136,9 @@ def publicar_noticias():
         post.title = titulo
         post.content = contenido
         post.post_status = "publish"
-        post.terms = {'category': [157]}  # Especifica la categoría con ID 157
-        try:
-            client.call(NewPost(post))
-            logging.info("Noticia publicada: %s con título: %s", noticia, titulo)
-        except Exception as e:
-            logging.error("Error al publicar la noticia: %s. Error: %s", noticia, e)
+        client.call(NewPost(post))
+
+        logging.info("Noticia publicada: %s con título: %s", noticia, titulo)
 
 if __name__ == "__main__":
     publicar_noticias()
