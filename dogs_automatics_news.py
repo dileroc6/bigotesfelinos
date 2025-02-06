@@ -44,7 +44,7 @@ def obtener_noticias():
         logging.info("Noticias obtenidas del día anterior: %d", len(noticias))
         return noticias
     except requests.exceptions.RequestException as e:
-        logging.error("Error al obtener noticias: %s", e)
+        logging.error("Error en la función obtener_noticias: %s", e)
         return []
 
 def generar_contenido_chatgpt(noticia):
@@ -63,37 +63,43 @@ def generar_contenido_chatgpt(noticia):
         logging.info("Contenido generado: %s", contenido)
         return contenido
     except Exception as e:
-        logging.error("Error al generar contenido con ChatGPT: %s", e)
+        logging.error("Error en la función generar_contenido_chatgpt: %s", e)
         return ""
 
 def extraer_titulo_y_limpiar(contenido):
     """Extrae el título del contenido y limpia el <h1>"""
-    match = re.search(r'<h1>(.*?)</h1>', contenido, re.IGNORECASE)
-    if match:
-        titulo = match.group(1)
-        contenido_sin_h1 = re.sub(r'<h1>.*?</h1>', '', contenido, count=1, flags=re.IGNORECASE)  # Elimina el <h1>
-        return titulo, contenido_sin_h1.strip()
-    
-    return "Noticia sobre perros", contenido  # Si no hay <h1>, usa un título genérico
+    try:
+        match = re.search(r'<h1>(.*?)</h1>', contenido, re.IGNORECASE)
+        if match:
+            titulo = match.group(1)
+            contenido_sin_h1 = re.sub(r'<h1>.*?</h1>', '', contenido, count=1, flags=re.IGNORECASE)  # Elimina el <h1>
+            return titulo, contenido_sin_h1.strip()
+        return "Noticia sobre perros", contenido  # Si no hay <h1>, usa un título genérico
+    except Exception as e:
+        logging.error("Error en la función extraer_titulo_y_limpiar: %s", e)
+        return "Noticia sobre perros", contenido
 
 def publicar_noticias():
     """Obtiene noticias, genera contenido y lo publica en WordPress"""
-    client = Client(WP_URL, WP_USER, WP_PASSWORD)
-    noticias = obtener_noticias()
+    try:
+        client = Client(WP_URL, WP_USER, WP_PASSWORD)
+        noticias = obtener_noticias()
 
-    for noticia in noticias:
-        contenido = generar_contenido_chatgpt(noticia)
-        titulo, contenido_limpio = extraer_titulo_y_limpiar(contenido)  # Extrae título y limpia el contenido
+        for noticia in noticias:
+            contenido = generar_contenido_chatgpt(noticia)
+            titulo, contenido_limpio = extraer_titulo_y_limpiar(contenido)  # Extrae título y limpia el contenido
 
-        post = WordPressPost()
-        post.title = titulo  # Usa el título real extraído del <h1>
-        post.content = contenido_limpio  # Usa el contenido sin <h1>
-        post.post_status = "publish"
-        post.terms_names = {"category": ["Noticias"]}  # Asegúrate de que la categoría existe
-        
-        client.call(NewPost(post))
+            post = WordPressPost()
+            post.title = titulo  # Usa el título real extraído del <h1>
+            post.content = contenido_limpio  # Usa el contenido sin <h1>
+            post.post_status = "publish"
+            post.terms_names = {"category": ["Noticias"]}  # Asegúrate de que la categoría existe
+            
+            client.call(NewPost(post))
 
-        logging.info("Noticia publicada: %s con título: %s", noticia, titulo)
+            logging.info("Noticia publicada: %s con título: %s", noticia, titulo)
+    except Exception as e:
+        logging.error("Error en la función publicar_noticias: %s", e)
 
 if __name__ == "__main__":
     publicar_noticias()
