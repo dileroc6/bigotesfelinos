@@ -70,27 +70,19 @@ def generar_contenido_chatgpt(noticia):
     client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     prompt = f"""
-    Actúa como un redactor experto en SEO y en contenido sobre mascotas. 
-    A partir de la siguiente noticia sobre perros: {noticia}, analiza la información y escribe un artículo original y bien estructurado. 
-    No copies la noticia, sino que extrae los puntos clave y explica la información de forma clara para personas interesadas en el mundo canino.
+    Escribe un artículo original sobre perros basado en la siguiente noticia: {noticia}
 
-    El artículo debe incluir:
-    - Una introducción llamativa sin el título "introducción".
-    - Un análisis sobre el impacto en dueños de mascotas, veterinarios y la industria del cuidado animal.
-    - Referencias a estudios o tendencias relacionadas.
-    - Respuestas a preguntas clave como: 
-        * ¿Por qué esta noticia es importante?
-        * ¿Cómo afecta a la vida diaria de los dueños de perros?
-        * ¿Qué acciones pueden tomar al respecto?
+    No copies la noticia, sino extrae los puntos clave y explícalos de manera clara y accesible para una audiencia interesada en el mundo canino. Aporta valor adicional a los lectores, proporcionando una perspectiva única y profunda, más allá de un simple resumen. Incluye una reflexión crítica o personal sobre el impacto de la noticia en los dueños de perros, la industria de mascotas o la sociedad en general.
 
-    Al final, incluye una conclusión con un resumen de los puntos más importantes y recomendaciones prácticas para dueños de perros, pero sin el título "conclusión".
+    Adopta un tono informativo pero cercano, como si estuvieras compartiendo la noticia con un amante de los perros. Evita jergas o tecnicismos, asegurándote de que el contenido sea fácil de comprender para cualquier persona, independientemente de su conocimiento sobre el tema.
 
-    Además, incluye al menos una vez una referencia a la fuente de la noticia de manera natural, con un hipervínculo a: 
-    <a href='https://www.eltiempo.com/noticias/perros' target='_blank'>El Tiempo</a>
+    Estructura el artículo con subtítulos, párrafos breves y, si es necesario, listas. El artículo debe tener al menos 600 palabras y ser visualmente atractivo, legible y valioso para el lector.
 
-    El artículo debe estar en formato HTML con etiquetas semánticas y optimizado para SEO. 
-    La extensión debe ser entre 1000 y 1500 palabras. Usa un tono informativo, profesional y atractivo.
-    Los títulos deben ser cortos y llamativos, en minúsculas excepto la primera letra.
+    El artículo debe estar en formato HTML con etiquetas semánticas, optimizado para SEO, y debe integrar palabras clave de manera natural, sin saturar el texto. Finaliza con una reflexión que invite a los lectores a reflexionar sobre el tema o a compartir sus opiniones.
+
+    Los títulos deben ser concisos, llamativos y escritos en minúsculas, excepto la primera letra.
+
+    Si es relevante, incluye un hipervínculo a la fuente de la noticia: <a href='https://www.eltiempo.com/noticias/perros' target='_blank'>El Tiempo</a>.
     """
     
     response = client.chat.completions.create(
