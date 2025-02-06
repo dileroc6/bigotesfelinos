@@ -62,6 +62,7 @@ def obtener_noticias():
 
         noticias = noticias[:2]
         guardar_historial(noticias)
+        print("Noticias obtenidas:", noticias)
         logging.info("Noticias obtenidas: %d", len(noticias))
         return noticias
 
@@ -73,7 +74,7 @@ def generar_contenido_chatgpt(noticia):
     """Genera contenido optimizado para SEO basado en la noticia"""
     try:
         prompt = f"""
-        Actúa como un redactor experto en SEO y en contenido sobre mascotas. 
+        Actúa como un redactor experto en SEO y en contenido sobre mascotas.
         A partir de la siguiente noticia sobre perros: {noticia}, analiza la información y escribe un artículo original y bien estructurado.
         
         El artículo debe incluir:
@@ -94,8 +95,8 @@ def generar_contenido_chatgpt(noticia):
                 {"role": "user", "content": prompt}
             ]
         )
-        
         contenido = response["choices"][0]["message"]["content"].strip()
+        print("Contenido generado:\n", contenido)
         return formatear_encabezados_html(contenido)
     
     except Exception as e:
@@ -119,13 +120,20 @@ def publicar_noticias():
     try:
         client = Client(WP_URL, WP_USER, WP_PASSWORD)
         noticias = obtener_noticias()
+        
+        if not noticias:
+            print("No se encontraron noticias nuevas.")
+            return
 
         for noticia in noticias:
             contenido = generar_contenido_chatgpt(noticia)
             if not contenido:
+                print("No se generó contenido para:", noticia)
                 continue
             
             titulo = extraer_titulo(contenido)
+            print("Publicando noticia con título:", titulo)
+            
             post = WordPressPost()
             post.title = titulo
             post.content = contenido
@@ -137,6 +145,7 @@ def publicar_noticias():
     
     except Exception as e:
         logging.error("Error al publicar en WordPress: %s", e)
+        print("Error al publicar en WordPress:", e)
 
 if __name__ == "__main__":
     publicar_noticias()
