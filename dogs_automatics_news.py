@@ -48,16 +48,23 @@ def obtener_noticias():
         return []
 
 def generar_contenido_chatgpt(noticia):
-    prompt = f"Escribe un resumen sobre la siguiente noticia: {noticia}"
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[
-            {"role": "system", "content": "Eres un asistente útil."},
-            {"role": "user", "content": prompt}
-        ],
-        max_tokens=150
-    )
-    return response.choices[0].message['content'].strip()
+    try:
+        prompt = f"Escribe un resumen sobre la siguiente noticia: {noticia}"
+        logging.info("Generando contenido para la noticia: %s", noticia)
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "Eres un asistente útil."},
+                {"role": "user", "content": prompt}
+            ],
+            max_tokens=150
+        )
+        contenido = response.choices[0].message['content'].strip()
+        logging.info("Contenido generado: %s", contenido)
+        return contenido
+    except Exception as e:
+        logging.error("Error al generar contenido con ChatGPT: %s", e)
+        return ""
 
 def extraer_titulo_y_limpiar(contenido):
     """Extrae el título del contenido y limpia el <h1>"""
