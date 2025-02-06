@@ -7,6 +7,8 @@ from wordpress_xmlrpc import Client, WordPressPost
 from wordpress_xmlrpc.methods.posts import NewPost
 import openai
 import re
+from datetime import datetime, timedelta
+import pytz
 
 # Cargar variables de entorno
 load_dotenv()
@@ -23,6 +25,9 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # Configuración de OpenAI
 openai.api_key = OPENAI_API_KEY
 
+# Zona horaria específica
+TIMEZONE = pytz.timezone("America/Bogota")  # Cambia esto a la zona horaria que necesites
+
 def obtener_noticias():
     """Obtiene noticias nuevas de El Tiempo"""
     try:
@@ -31,13 +36,16 @@ def obtener_noticias():
         soup = BeautifulSoup(response.text, "html.parser")
 
         noticias = []
+        ayer = (datetime.now(TIMEZONE) - timedelta(days=1)).strftime("%d/%m/%Y")
         for articulo in soup.find_all("article"):
-            link = articulo.find("a")["href"]
-            noticia_url = "https://www.eltiempo.com" + link
-            noticias.append(noticia_url)
+            fecha_elemento = articulo.find("time")
+            if fecha_elemento and ayer in fecha_elemento.text:  # Verifica que la fecha sea de ayer
+                link = articulo.find("a")["href"]
+                noticia_url = "https://www.eltiempo.com" + link
+                noticias.append(noticia_url)
 
         noticias = noticias[:2]  # Máximo 2 noticias nuevas por ejecución
-        logging.info("Noticias obtenidas: %d", len(noticias))
+        logging.info("Noticias obtenidas del día anterior: %d", len(noticias))
 
         return noticias
 
@@ -47,8 +55,6 @@ def obtener_noticias():
 
 def generar_contenido_chatgpt(noticia):
     """Genera contenido optimizado para SEO basado en la noticia"""
-    client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-
     prompt = f"""
     Escribe un artículo original sobre perros basado en la siguiente noticia: {noticia}
 
@@ -65,20 +71,21 @@ def generar_contenido_chatgpt(noticia):
     Si es relevante, incluye un hipervínculo a la fuente de la noticia: <a href='https://www.eltiempo.com/noticias/perros' target='_blank'>El Tiempo</a>.
     """
     
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "Eres un asistente experto en redacción de artículos SEO y conocedor de todo lo relacionado con perros."},
-            {"role": "user", "content": prompt}
-        ]
-    )
-
-    contenido = response.choices[0].message.content.strip()
-
-    # Asegurarse de que los encabezados h1, h2, h3 tengan la primera letra mayúscula y el resto minúscula
-    contenido = formatear_encabezados_html(contenido)
-    
-    return contenido
+    try:
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "Eres un asistente experto en redacción de artículos SEO y conocedor de todo lo relacionado con perros."},
+                {"role": "user", "content": prompt}
+            ]
+        )
+        contenido = response.choices[0].message['content'].strip()
+        # Asegurarse de que los encabezados h1, h2, h3 tengan la primera letra mayúscula y el resto minúscula
+        contenido = formatear_encabezados_html(contenido)
+        return contenido
+    except Exception as e:
+        logging.error("Error al generar contenido con ChatGPT: %s", e)
+        return ""
 
 def formatear_encabezados_html(contenido):
     """Formatea los encabezados h1, h2 y h3 para que tengan la primera letra en mayúscula y el resto en minúscula."""
