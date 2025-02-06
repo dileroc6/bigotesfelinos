@@ -7,8 +7,6 @@ from wordpress_xmlrpc import Client, WordPressPost
 from wordpress_xmlrpc.methods.posts import NewPost
 import openai
 import re
-from datetime import datetime, timedelta
-import pytz
 
 # Cargar variables de entorno
 load_dotenv()
@@ -25,26 +23,46 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # Configuración de OpenAI
 openai.api_key = OPENAI_API_KEY
 
-# Zona horaria específica
-TIMEZONE = pytz.timezone("America/Bogota")  # Cambia esto a la zona horaria que necesites
+# Archivo de historial para evitar noticias repetidas   
+HISTORIAL_FILE = "historial.txt"
+
+def cargar_historial():
+    """Carga el historial de noticias publicadas desde un archivo"""
+    if os.path.exists(HISTORIAL_FILE):
+        with open(HISTORIAL_FILE, "r", encoding="utf-8") as file:
+            return set(file.read().splitlines())
+    return set()
+
+def guardar_historial(nuevas_noticias):
+    """Guarda nuevas noticias en el historial"""
+    with open(HISTORIAL_FILE, "a", encoding="utf-8") as file:
+        for noticia in nuevas_noticias:
+            file.write(noticia + "\n")
 
 def obtener_noticias():
+    """Obtiene noticias nuevas de El Tiempo"""
     try:
         response = requests.get("https://www.eltiempo.com/noticias/perros")
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
+
         noticias = []
-        ayer = (datetime.now(TIMEZONE) - timedelta(days=1)).strftime("%d/%m/%Y")
+        historial = cargar_historial()
+
         for articulo in soup.find_all("article"):
-            fecha_elemento = articulo.find("time")
-            if fecha_elemento and ayer in fecha_elemento.text:  # Verifica que la fecha sea de ayer
-                link = articulo.find("a")["href"]
-                noticia_url = "https://www.eltiempo.com" + link
+            link = articulo.find("a")["href"]
+            noticia_url = "https://www.eltiempo.com" + link
+            if noticia_url not in historial:  # Evitar noticias repetidas
                 noticias.append(noticia_url)
-        logging.info("Noticias obtenidas del día anterior: %d", len(noticias))
+
+        noticias = noticias[:2]  # Máximo 2 noticias nuevas por ejecución
+        guardar_historial(noticias)  # Guardar en historial
+        logging.info("Noticias obtenidas: %d", len(noticias))
+
         return noticias
+
     except requests.exceptions.RequestException as e:
-        logging.error("Error en la función obtener_noticias: %s", e)
+        logging.error("Error al obtener noticias: %s", e)
         return []
 
 def generar_contenido_chatgpt(noticia):
@@ -77,40 +95,46 @@ def generar_contenido_chatgpt(noticia):
 
     contenido = response.choices[0].message.content.strip()
 
+    # Asegurarse de que los encabezados h1, h2, h3 tengan la primera letra mayúscula y el resto minúscula
+    contenido = formatear_encabezados_html(contenido)
+    
+    return contenido
+
+def formatear_encabezados_html(contenido):
+    """Formatea los encabezados h1, h2 y h3 para que tengan la primera letra en mayúscula y el resto en minúscula."""
+    # Usar expresiones regulares para encontrar los encabezados h1, h2 y h3
+    contenido = re.sub(r'<h([1-3])>(.*?)</h\1>', lambda m: f'<h{m.group(1)}>{m.group(2).capitalize()}</h{m.group(1)}>', contenido)
+    return contenido
+
 def extraer_titulo_y_limpiar(contenido):
-    """Extrae el título del contenido y limpia el <h1>"""
-    try:
-        match = re.search(r'<h1>(.*?)</h1>', contenido, re.IGNORECASE)
-        if match:
-            titulo = match.group(1)
-            contenido_sin_h1 = re.sub(r'<h1>.*?</h1>', '', contenido, count=1, flags=re.IGNORECASE)  # Elimina el <h1>
-            return titulo, contenido_sin_h1.strip()
-        return "Noticia sobre perros", contenido  # Si no hay <h1>, usa un título genérico
-    except Exception as e:
-        logging.error("Error en la función extraer_titulo_y_limpiar: %s", e)
-        return "Noticia sobre perros", contenido
+    """Extrae el título desde el <h1> generado por ChatGPT y lo elimina del contenido."""
+    match = re.search(r'<h1>(.*?)</h1>', contenido, re.IGNORECASE)
+    
+    if match:
+        titulo = match.group(1).strip()  # Extrae el texto dentro de <h1>
+        contenido_sin_h1 = re.sub(r'<h1>.*?</h1>', '', contenido, count=1, flags=re.IGNORECASE)  # Elimina el <h1>
+        return titulo, contenido_sin_h1.strip()
+    
+    return "Noticia sobre perros", contenido  # Si no hay <h1>, usa un título genérico
 
 def publicar_noticias():
     """Obtiene noticias, genera contenido y lo publica en WordPress"""
-    try:
-        client = Client(WP_URL, WP_USER, WP_PASSWORD)
-        noticias = obtener_noticias()
+    client = Client(WP_URL, WP_USER, WP_PASSWORD)
+    noticias = obtener_noticias()
 
-        for noticia in noticias:
-            contenido = generar_contenido_chatgpt(noticia)
-            titulo, contenido_limpio = extraer_titulo_y_limpiar(contenido)  # Extrae título y limpia el contenido
+    for noticia in noticias:
+        contenido = generar_contenido_chatgpt(noticia)
+        titulo, contenido_limpio = extraer_titulo_y_limpiar(contenido)  # Extrae título y limpia el contenido
 
-            post = WordPressPost()
-            post.title = titulo  # Usa el título real extraído del <h1>
-            post.content = contenido_limpio  # Usa el contenido sin <h1>
-            post.post_status = "publish"
-            post.terms_names = {"category": ["Noticias"]}  # Asegúrate de que la categoría existe
-            
-            client.call(NewPost(post))
+        post = WordPressPost()
+        post.title = titulo  # Usa el título real extraído del <h1>
+        post.content = contenido_limpio  # Usa el contenido sin <h1>
+        post.post_status = "publish"
+        post.terms_names = {"category": ["Noticias"]}  # Asegúrate de que la categoría existe
+        
+        client.call(NewPost(post))
 
-            logging.info("Noticia publicada: %s con título: %s", noticia, titulo)
-    except Exception as e:
-        logging.error("Error en la función publicar_noticias: %s", e)
+        logging.info("Noticia publicada: %s con título: %s", noticia, titulo)
 
 if __name__ == "__main__":
     publicar_noticias()
