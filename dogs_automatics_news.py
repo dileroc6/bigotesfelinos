@@ -7,6 +7,7 @@ from wordpress_xmlrpc import Client, WordPressPost
 from wordpress_xmlrpc.methods.posts import NewPost
 import openai
 import re
+from datetime import datetime, timedelta  # Importar datetime y timedelta
 
 # Cargar variables de entorno
 load_dotenv()
