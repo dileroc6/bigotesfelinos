@@ -35,6 +35,7 @@ jobs:
           WP_USER: ${{ secrets.WP_USER }}
           WP_PASSWORD: ${{ secrets.WP_PASSWORD }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
         run: |
           python dogs_automatics_news.py || { echo "Error en el script de publicación." >> proceso_noticias.log; exit 1; }
 

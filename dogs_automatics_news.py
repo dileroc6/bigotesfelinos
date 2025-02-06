@@ -68,7 +68,7 @@ def generar_contenido_chatgpt(noticia):
     response = client.chat.completions.create(
         model="gpt-4",
         messages=[
-            {"role": "system", "content": "Eres un asistente experto en redacción de artículos SEO."},
+            {"role": "system", "content": "Eres un asistente experto en redacción de artículos SEO y conocedor de todo lo relacionado con perros."},
             {"role": "user", "content": prompt}
         ]
     )
