@@ -136,7 +136,7 @@ def publicar_noticias():
         post.title = titulo
         post.content = contenido
         post.post_status = "publish"
-		post.terms_names = {"category": ["Noticias"]}  # Asegúrate de que la categoría existe
+        post.terms_names = {"category": ["Noticias"]}  # Asegúrate de que la categoría existe
 		
         client.call(NewPost(post))
 
