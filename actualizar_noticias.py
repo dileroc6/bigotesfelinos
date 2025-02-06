@@ -7,6 +7,7 @@ import openai
 import re
 from datetime import datetime
 import pytz
+from dotenv import load_dotenv  # Asegúrate de importar load_dotenv
 
 # Cargar variables de entorno
 load_dotenv()
@@ -62,8 +63,12 @@ def buscar_imagen_unsplash(query):
         return ""
 
 def actualizar_noticias():
-    """Actualiza las entradas de noticias generadas en el día actual"""
+    """Actualiza las entradas de noticias generadas con imágenes de Unsplash"""
     client = Client(WP_URL, WP_USER, WP_PASSWORD)
+
+    if not os.path.exists("titulos_generados.txt"):
+        logging.info("No se encontraron títulos generados. No hay nada que actualizar.")
+        return
 
     try:
         with open("titulos_generados.txt", "r") as file:

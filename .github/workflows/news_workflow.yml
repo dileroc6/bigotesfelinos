@@ -74,7 +74,7 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
         run: |
-          python actualizar_noticias.py || { echo "Error en el script de actualización." >> proceso_noticias.log; exit 1; }
+          if [ -f "titulos_generados.txt" ]; then python actualizar_noticias.py; else echo "No se encontraron títulos generados. No hay nada que actualizar." >> proceso_noticias.log; fi
 
       - name: Guardar logs de actualización como artefactos
         uses: actions/upload-artifact@v4
