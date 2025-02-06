@@ -136,7 +136,7 @@ def publicar_noticias():
         post.title = titulo
         post.content = contenido
         post.post_status = "publish"
-        post.terms = {'category': [157]}
+        post.terms = {'categor  y': [157]}
         client.call(NewPost(post))
 
         logging.info("Noticia publicada: %s con título: %s", noticia, titulo)
