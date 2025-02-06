@@ -48,23 +48,34 @@ def obtener_noticias():
         return []
 
 def generar_contenido_chatgpt(noticia):
-    try:
-        prompt = f"Escribe un resumen sobre la siguiente noticia: {noticia}"
-        logging.info("Generando contenido para la noticia: %s", noticia)
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "Eres un asistente útil."},
-                {"role": "user", "content": prompt}
-            ],
-            max_tokens=150
-        )
-        contenido = response.choices[0].message['content'].strip()
-        logging.info("Contenido generado: %s", contenido)
-        return contenido
-    except Exception as e:
-        logging.error("Error en la función generar_contenido_chatgpt: %s", e)
-        return ""
+    """Genera contenido optimizado para SEO basado en la noticia"""
+    client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    prompt = f"""
+    Escribe un artículo original sobre perros basado en la siguiente noticia: {noticia}
+
+    No copies la noticia, sino extrae los puntos clave y explícalos de manera clara y accesible para una audiencia interesada en el mundo canino. Aporta valor adicional a los lectores, proporcionando una perspectiva única y profunda, más allá de un simple resumen. Incluye una reflexión crítica o personal sobre el impacto de la noticia en los dueños de perros, la industria de mascotas o la sociedad en general.
+
+    Adopta un tono informativo pero cercano, como si estuvieras compartiendo la noticia con un amante de los perros. Evita jergas o tecnicismos, asegurándote de que el contenido sea fácil de comprender para cualquier persona, independientemente de su conocimiento sobre el tema.
+
+    Estructura el artículo con subtítulos, párrafos breves y, si es necesario, listas. El artículo debe tener al menos 600 palabras y ser visualmente atractivo, legible y valioso para el lector.
+
+    El artículo debe estar en formato HTML con etiquetas semánticas, optimizado para SEO, y debe integrar palabras clave de manera natural, sin saturar el texto. Finaliza con una reflexión que invite a los lectores a reflexionar sobre el tema o a compartir sus opiniones.
+
+    Los títulos deben ser concisos, llamativos y escritos en minúsculas, excepto la primera letra.
+
+    Si es relevante, incluye un hipervínculo a la fuente de la noticia: <a href='https://www.eltiempo.com/noticias/perros' target='_blank'>El Tiempo</a>.
+    """
+    
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": "Eres un asistente experto en redacción de artículos SEO."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+
+    contenido = response.choices[0].message.content.strip()
 
 def extraer_titulo_y_limpiar(contenido):
     """Extrae el título del contenido y limpia el <h1>"""
