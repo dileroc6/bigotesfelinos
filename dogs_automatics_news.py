@@ -7,6 +7,7 @@ from wordpress_xmlrpc import Client, WordPressPost
 from wordpress_xmlrpc.methods.posts import NewPost
 import openai
 import re
+from datetime import datetime, timedelta
 
 # Cargar variables de entorno
 load_dotenv()
@@ -23,65 +24,45 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # Configuración de OpenAI
 openai.api_key = OPENAI_API_KEY
 
-# Archivo de historial para evitar noticias repetidas
-HISTORIAL_FILE = "historial.txt"
-
-def cargar_historial():
-    """Carga el historial de noticias publicadas desde un archivo"""
-    if os.path.exists(HISTORIAL_FILE):
-        with open(HISTORIAL_FILE, "r", encoding="utf-8") as file:
-            return set(file.read().splitlines())
-    return set()
-
-def guardar_historial(nuevas_noticias):
-    """Guarda nuevas noticias en el historial"""
-    with open(HISTORIAL_FILE, "a", encoding="utf-8") as file:
-        for noticia in nuevas_noticias:
-            file.write(noticia + "\n")
-
-def obtener_noticias():
-    """Obtiene noticias nuevas de El Tiempo"""
+def obtener_noticias_dia_anterior():
+    """Obtiene todas las noticias generadas el día anterior."""
     try:
         response = requests.get("https://www.eltiempo.com/noticias/perros")
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
 
         noticias = []
-        historial = cargar_historial()
+        fecha_ayer = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
 
         for articulo in soup.find_all("article"):
-            link = articulo.find("a")["href"]
-            noticia_url = "https://www.eltiempo.com" + link
-            if noticia_url not in historial:  # Evitar noticias repetidas
-                noticias.append(noticia_url)
+            link = articulo.find("a")
+            fecha_publicacion = articulo.find("time")
+            
+            if link and fecha_publicacion:
+                noticia_url = "https://www.eltiempo.com" + link["href"]
+                noticia_fecha = fecha_publicacion["datetime"].split("T")[0]  # Extrae la fecha en formato YYYY-MM-DD
+                
+                if noticia_fecha == fecha_ayer:
+                    noticias.append(noticia_url)
 
-        noticias = noticias[:2]  # Máximo 2 noticias nuevas por ejecución
-        guardar_historial(noticias)  # Guardar en historial
-        logging.info("Noticias obtenidas: %d", len(noticias))
-
+        logging.info("Noticias obtenidas del día anterior: %d", len(noticias))
         return noticias
-
     except requests.exceptions.RequestException as e:
         logging.error("Error al obtener noticias: %s", e)
         return []
 
 def generar_contenido_chatgpt(noticia):
-    """Genera contenido optimizado para SEO basado en la noticia"""
+    """Genera contenido optimizado para SEO basado en la noticia."""
     client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     prompt = f"""
     Escribe un artículo original sobre perros basado en la siguiente noticia: {noticia}
 
-    No copies la noticia, sino extrae los puntos clave y explícalos de manera clara y accesible para una audiencia interesada en el mundo canino. Aporta valor adicional a los lectores, proporcionando una perspectiva única y profunda, más allá de un simple resumen. Incluye una reflexión crítica o personal sobre el impacto de la noticia en los dueños de perros, la industria de mascotas o la sociedad en general.
-
-    Adopta un tono informativo pero cercano, como si estuvieras compartiendo la noticia con un amante de los perros. Evita jergas o tecnicismos, asegurándote de que el contenido sea fácil de comprender para cualquier persona, independientemente de su conocimiento sobre el tema.
-
-    Estructura el artículo con subtítulos, párrafos breves y, si es necesario, listas. El artículo debe tener al menos 600 palabras y ser visualmente atractivo, legible y valioso para el lector.
-
-    El artículo debe estar en formato HTML con etiquetas semánticas, optimizado para SEO, y debe integrar palabras clave de manera natural, sin saturar el texto. Finaliza con una reflexión que invite a los lectores a reflexionar sobre el tema o a compartir sus opiniones.
-
-    Los títulos deben ser concisos, llamativos y escritos en minúsculas, excepto la primera letra.
-
+    No copies la noticia, sino extrae los puntos clave y explícalos de manera clara y accesible para una audiencia interesada en el mundo canino. 
+    Aporta valor adicional a los lectores, proporcionando una perspectiva única y profunda, más allá de un simple resumen. 
+    
+    Estructura el artículo con subtítulos, párrafos breves y listas si es necesario. El artículo debe tener al menos 600 palabras y estar en formato HTML optimizado para SEO.
+    
     Si es relevante, incluye un hipervínculo a la fuente de la noticia: <a href='https://www.eltiempo.com/noticias/perros' target='_blank'>El Tiempo</a>.
     """
     
@@ -92,48 +73,39 @@ def generar_contenido_chatgpt(noticia):
             {"role": "user", "content": prompt}
         ]
     )
-
-    contenido = response.choices[0].message.content.strip()
-
-    # Asegurarse de que los encabezados h1, h2, h3 tengan la primera letra mayúscula y el resto minúscula
-    contenido = formatear_encabezados_html(contenido)
     
-    return contenido
+    contenido = response.choices[0].message.content.strip()
+    return formatear_encabezados_html(contenido)
 
 def formatear_encabezados_html(contenido):
     """Formatea los encabezados h1, h2 y h3 para que tengan la primera letra en mayúscula y el resto en minúscula."""
-    # Usar expresiones regulares para encontrar los encabezados h1, h2 y h3
-    contenido = re.sub(r'<h([1-3])>(.*?)</h\1>', lambda m: f'<h{m.group(1)}>{m.group(2).capitalize()}</h{m.group(1)}>', contenido)
-    return contenido
+    return re.sub(r'<h([1-3])>(.*?)</h\1>', lambda m: f'<h{m.group(1)}>{m.group(2).capitalize()}</h{m.group(1)}>', contenido)
 
 def extraer_titulo_y_limpiar(contenido):
     """Extrae el título desde el <h1> generado por ChatGPT y lo elimina del contenido."""
     match = re.search(r'<h1>(.*?)</h1>', contenido, re.IGNORECASE)
-    
     if match:
-        titulo = match.group(1).strip()  # Extrae el texto dentro de <h1>
-        contenido_sin_h1 = re.sub(r'<h1>.*?</h1>', '', contenido, count=1, flags=re.IGNORECASE)  # Elimina el <h1>
+        titulo = match.group(1).strip()
+        contenido_sin_h1 = re.sub(r'<h1>.*?</h1>', '', contenido, count=1, flags=re.IGNORECASE)
         return titulo, contenido_sin_h1.strip()
-    
-    return "Noticia sobre perros", contenido  # Si no hay <h1>, usa un título genérico
+    return "Noticia sobre perros", contenido
 
 def publicar_noticias():
-    """Obtiene noticias, genera contenido y lo publica en WordPress"""
+    """Publica todas las noticias del día anterior en WordPress."""
     client = Client(WP_URL, WP_USER, WP_PASSWORD)
-    noticias = obtener_noticias()
+    noticias = obtener_noticias_dia_anterior()
 
     for noticia in noticias:
         contenido = generar_contenido_chatgpt(noticia)
-        titulo, contenido_limpio = extraer_titulo_y_limpiar(contenido)  # Extrae título y limpia el contenido
-
+        titulo, contenido_limpio = extraer_titulo_y_limpiar(contenido)
+        
         post = WordPressPost()
-        post.title = titulo  # Usa el título real extraído del <h1>
-        post.content = contenido_limpio  # Usa el contenido sin <h1>
+        post.title = titulo
+        post.content = contenido_limpio
         post.post_status = "publish"
-        post.terms_names = {"category": ["Noticias"]}  # Asegúrate de que la categoría existe
+        post.terms_names = {"category": ["Noticias"]}
         
         client.call(NewPost(post))
-
         logging.info("Noticia publicada: %s con título: %s", noticia, titulo)
 
 if __name__ == "__main__":
