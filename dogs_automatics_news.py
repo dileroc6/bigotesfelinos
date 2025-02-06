@@ -23,22 +23,6 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # Configuración de OpenAI
 openai.api_key = OPENAI_API_KEY
 
-# Archivo de historial para evitar noticias repetidas   
-HISTORIAL_FILE = "historial.txt"
-
-def cargar_historial():
-    """Carga el historial de noticias publicadas desde un archivo"""
-    if os.path.exists(HISTORIAL_FILE):
-        with open(HISTORIAL_FILE, "r", encoding="utf-8") as file:
-            return set(file.read().splitlines())
-    return set()
-
-def guardar_historial(nuevas_noticias):
-    """Guarda nuevas noticias en el historial"""
-    with open(HISTORIAL_FILE, "a", encoding="utf-8") as file:
-        for noticia in nuevas_noticias:
-            file.write(noticia + "\n")
-
 def obtener_noticias():
     """Obtiene noticias nuevas de El Tiempo"""
     try:
@@ -47,16 +31,12 @@ def obtener_noticias():
         soup = BeautifulSoup(response.text, "html.parser")
 
         noticias = []
-        historial = cargar_historial()
-
         for articulo in soup.find_all("article"):
             link = articulo.find("a")["href"]
             noticia_url = "https://www.eltiempo.com" + link
-            if noticia_url not in historial:  # Evitar noticias repetidas
-                noticias.append(noticia_url)
+            noticias.append(noticia_url)
 
         noticias = noticias[:2]  # Máximo 2 noticias nuevas por ejecución
-        guardar_historial(noticias)  # Guardar en historial
         logging.info("Noticias obtenidas: %d", len(noticias))
 
         return noticias
