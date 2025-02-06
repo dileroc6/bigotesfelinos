@@ -2,8 +2,8 @@ name: Publicar noticias en WordPress
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "0 12 * * *"  # Se ejecuta todos los días a las 12:00 UTC
+  #schedule:
+  #  - cron: "0 12 * * *"  # Se ejecuta todos los días a las 12:00 UTC
 
 jobs:
   publicar:
