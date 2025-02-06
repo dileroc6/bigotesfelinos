@@ -114,14 +114,16 @@ def formatear_encabezados_html(contenido):
     contenido = re.sub(r'<h([1-3])>(.*?)</h\1>', lambda m: f'<h{m.group(1)}>{m.group(2).capitalize()}</h{m.group(1)}>', contenido)
     return contenido
 
-def extraer_titulo(contenido):
-    """Extrae un título llamativo del contenido"""
-    primeras_lineas = contenido.split("\n")[:3]  # Tomar las primeras líneas
-    for linea in primeras_lineas:
-        linea = linea.strip()
-        if 20 <= len(linea) <= 80:  # Títulos entre 20 y 80 caracteres
-            return linea.capitalize()  # Primera letra en mayúscula, resto en minúscula
-    return "Noticia sobre perros"  # Título genérico si no encuentra uno adecuado
+def extraer_titulo_y_limpiar(contenido):
+    """Extrae el título desde el <h1> generado por ChatGPT y lo elimina del contenido."""
+    match = re.search(r'<h1>(.*?)</h1>', contenido, re.IGNORECASE)
+    
+    if match:
+        titulo = match.group(1).strip()  # Extrae el texto dentro de <h1>
+        contenido_sin_h1 = re.sub(r'<h1>.*?</h1>', '', contenido, count=1, flags=re.IGNORECASE)  # Elimina el <h1>
+        return titulo, contenido_sin_h1.strip()
+    
+    return "Noticia sobre perros", contenido  # Si no hay <h1>, usa un título genérico
 
 def publicar_noticias():
     """Obtiene noticias, genera contenido y lo publica en WordPress"""
@@ -130,14 +132,14 @@ def publicar_noticias():
 
     for noticia in noticias:
         contenido = generar_contenido_chatgpt(noticia)
-        titulo = extraer_titulo(contenido)
+        titulo, contenido_limpio = extraer_titulo_y_limpiar(contenido)  # Extrae título y limpia el contenido
 
         post = WordPressPost()
-        post.title = titulo
-        post.content = contenido
+        post.title = titulo  # Usa el título real extraído del <h1>
+        post.content = contenido_limpio  # Usa el contenido sin <h1>
         post.post_status = "publish"
         post.terms_names = {"category": ["Noticias"]}  # Asegúrate de que la categoría existe
-		
+        
         client.call(NewPost(post))
 
         logging.info("Noticia publicada: %s con título: %s", noticia, titulo)
