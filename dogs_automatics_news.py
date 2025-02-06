@@ -25,9 +25,6 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 # Configuración de OpenAI
 openai.api_key = OPENAI_API_KEY
 
-# Archivo de historial para evitar noticias repetidas   
-HISTORIAL_FILE = "historial.txt"
-
 # Zona horaria específica
 TIMEZONE = pytz.timezone("America/Bogota")  # Cambia esto a la zona horaria que necesites
 
