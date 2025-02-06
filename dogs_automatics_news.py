@@ -14,7 +14,7 @@ import pytz
 load_dotenv()
 
 # Configuración de logging
-logging.basicConfig(filename="proceso_noticias.log", level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+logging.basicConfig(filename="proceso_noticias.log", level=logging.INFO, format="%(asctime)s - %(nivelname)s - %(message)s")
 
 # Configuración de WordPress
 WP_URL = os.getenv("WP_URL")
@@ -108,10 +108,12 @@ def publicar_noticias():
     """Obtiene noticias, genera contenido y lo publica en WordPress"""
     client = Client(WP_URL, WP_USER, WP_PASSWORD)
     noticias = obtener_noticias()
+    titulos_generados = []
 
     for noticia in noticias:
         contenido = generar_contenido_chatgpt(noticia)
         titulo, contenido_limpio = extraer_titulo_y_limpiar(contenido)  # Extrae título y limpia el contenido
+        titulos_generados.append(titulo)
 
         post = WordPressPost()
         post.title = titulo  # Usa el título real extraído del <h1>
@@ -122,6 +124,11 @@ def publicar_noticias():
         client.call(NewPost(post))
 
         logging.info("Noticia publicada: %s con título: %s", noticia, titulo)
+
+    # Guardar los títulos generados en un archivo
+    with open("titulos_generados.txt", "w") as file:
+        for titulo in titulos_generados:
+            file.write(titulo + "\n")
 
 if __name__ == "__main__":
     publicar_noticias()
