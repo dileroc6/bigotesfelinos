@@ -73,6 +73,7 @@ def obtener_noticias():
 def generar_contenido_chatgpt(noticia):
     """Genera contenido optimizado para SEO basado en la noticia"""
     try:
+        client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         prompt = f"""
         Actúa como un redactor experto en SEO y en contenido sobre mascotas.
         A partir de la siguiente noticia sobre perros: {noticia}, analiza la información y escribe un artículo original y bien estructurado.
@@ -88,12 +89,12 @@ def generar_contenido_chatgpt(noticia):
         Usa formato HTML con etiquetas semánticas y optimización SEO.
         """
         
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "Eres un asistente experto en redacción de artículos SEO."},
-                {"role": "user", "content": prompt}
-            ]
+        response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": "Eres un asistente experto en redacción de artículos SEO."},
+            {"role": "user", "content": prompt}
+        ]
         )
         contenido = response["choices"][0]["message"]["content"].strip()
         print("Contenido generado:\n", contenido)
