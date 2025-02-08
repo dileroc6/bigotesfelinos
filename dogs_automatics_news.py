@@ -137,16 +137,20 @@ def generar_palabra_clave(titulo):
     Basado en el siguiente título de una noticia sobre perros, proporciona una sola palabra clave relevante para buscar una imagen en Unsplash que NO sea ni "perro" ni "perros": {titulo}
     """
     
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "Eres un asistente experto en redacción de artículos SEO."},
-            {"role": "user", "content": prompt}
-        ]
-    )
+    while True:
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "Eres un asistente experto en redacción de artículos SEO."},
+                {"role": "user", "content": prompt}
+            ]
+        )
 
-    palabra_clave = response.choices[0].message.content.strip()
-    logging.info("Palabra clave generada: %s", palabra_clave)
+        palabra_clave = response.choices[0].message.content.strip().lower()
+        logging.info("Palabra clave generada: %s", palabra_clave)
+        
+        if palabra_clave not in ["perro", "perros"]:
+            break  # Salir del bucle si la palabra clave es diferente de "perro" o "perros"
     
     return palabra_clave
 
@@ -159,7 +163,7 @@ def buscar_imagen_unsplash(query, width=1200, height=630):
         data = response.json()
         if data["results"]:
             # Obtener la URL de la imagen y ajustar el tamaño
-            imagen_url = data["results"][0]["urls"]["raw"] + f"&w={width}&h={height}"
+            imagen_url = data["results"][0]["urls"]["raw"] + f"&w={width}&h={height}&fit=crop"
             return imagen_url
         else:
             logging.warning("No se encontraron imágenes para la consulta: %s", query)
