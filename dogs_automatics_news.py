@@ -205,7 +205,7 @@ def actualizar_noticias(client, titulos):
         for titulo in titulos:
             palabra_clave = generar_palabra_clave(titulo)
             query = f"perro {palabra_clave}"
-            imagen_url = buscar_imagen_unsplash(query)
+            imagen_url = buscar_imagen_unsplash(query, width=800, height=600)
             if imagen_url:
                 posts = client.call(GetPosts({'number': 100, 'post_status': 'publish', 'post_type': 'post'}))
                 for post in posts:
