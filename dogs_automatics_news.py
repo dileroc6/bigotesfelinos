@@ -43,11 +43,25 @@ def obtener_noticias():
         for articulo in soup.find_all("article"):
             fecha_elemento = articulo.find("time")
             if fecha_elemento:
-                logging.info("Fecha del artículo: %s", fecha_elemento.text)
-                if ayer in fecha_elemento.text:  # Verifica que la fecha sea de ayer
-                    link = articulo.find("a")["href"]
-                    noticia_url = "https://www.eltiempo.com" + link
-                    noticias.append(noticia_url)
+                fecha_texto = fecha_elemento.text.strip().lower()
+                logging.info("Fecha del artículo: %s", fecha_texto)
+                # Extraer la fecha del texto del artículo
+                match = re.search(r'(\d{1,2})\s+([a-z]+)\s+de\s+(\d{4})', fecha_texto)
+                if match:
+                    dia, mes, año = match.groups()
+                    # Convertir el mes a número
+                    meses = {
+                        'enero': '01', 'febrero': '02', 'marzo': '03', 'abril': '04',
+                        'mayo': '05', 'junio': '06', 'julio': '07', 'agosto': '08',
+                        'septiembre': '09', 'octubre': '10', 'noviembre': '11', 'diciembre': '12'
+                    }
+                    mes_numero = meses.get(mes)
+                    fecha_articulo = f"{dia.zfill(2)}/{mes_numero}/{año}"
+                    logging.info("Fecha del artículo formateada: %s", fecha_articulo)
+                    if fecha_articulo == ayer:  # Verifica que la fecha sea de ayer
+                        link = articulo.find("a")["href"]
+                        noticia_url = "https://www.eltiempo.com" + link
+                        noticias.append(noticia_url)
 
         noticias = noticias[:2]  # Máximo 2 noticias nuevas por ejecución
         logging.info("Noticias obtenidas del día anterior: %d", len(noticias))
