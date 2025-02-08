@@ -150,15 +150,17 @@ def generar_palabra_clave(titulo):
     
     return palabra_clave
 
-def buscar_imagen_unsplash(query):
-    """Busca una imagen en Unsplash basada en la consulta"""
+def buscar_imagen_unsplash(query, width=800, height=600):
+    """Busca una imagen en Unsplash basada en la consulta y ajusta el tamaño"""
     url = f"https://api.unsplash.com/search/photos?query={query}&client_id={UNSPLASH_ACCESS_KEY}"
     try:
         response = requests.get(url)
         response.raise_for_status()
         data = response.json()
         if data["results"]:
-            return data["results"][0]["urls"]["regular"]
+            # Obtener la URL de la imagen y ajustar el tamaño
+            imagen_url = data["results"][0]["urls"]["raw"] + f"&w={width}&h={height}"
+            return imagen_url
         else:
             logging.warning("No se encontraron imágenes para la consulta: %s", query)
             return ""
