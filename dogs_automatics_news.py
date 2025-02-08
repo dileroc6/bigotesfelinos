@@ -74,6 +74,8 @@ def obtener_noticias():
 
 def generar_contenido_chatgpt(noticia):
     """Genera contenido optimizado para SEO basado en la noticia"""
+    client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
     prompt = f"""
     Escribe un artículo original sobre perros basado en la siguiente noticia: {noticia}
 
@@ -90,21 +92,20 @@ def generar_contenido_chatgpt(noticia):
     Si es relevante, incluye un hipervínculo a la fuente de la noticia: <a href='https://www.eltiempo.com/noticias/perros' target='_blank'>El Tiempo</a>.
     """
     
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "Eres un asistente experto en redacción de artículos SEO y conocedor de todo lo relacionado con perros."},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        contenido = response.choices[0].message['content'].strip()
-        # Asegurarse de que los encabezados h1, h2, h3 tengan la primera letra mayúscula y el resto minúscula
-        contenido = formatear_encabezados_html(contenido)
-        return contenido
-    except Exception as e:
-        logging.error("Error al generar contenido con ChatGPT: %s", e)
-        return ""
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": "Eres un asistente experto en redacción de artículos SEO y conocedor de todo lo relacionado con perros."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+
+    contenido = response.choices[0].message.content.strip()
+
+    # Asegurarse de que los encabezados h1, h2, h3 tengan la primera letra mayúscula y el resto minúscula
+    contenido = formatear_encabezados_html(contenido)
+    
+    return contenido
 
 def formatear_encabezados_html(contenido):
     """Formatea los encabezados h1, h2 y h3 para que tengan la primera letra en mayúscula y el resto en minúscula."""
@@ -124,25 +125,25 @@ def extraer_titulo_y_limpiar(contenido):
     return "Noticia sobre perros", contenido  # Si no hay <h1>, usa un título genérico
 
 def generar_palabra_clave(titulo):
-    """Genera una palabra clave basada en el título de la noticia usando ChatGPT"""
-    prompt = f"""
-    Basado en el siguiente título de una noticia sobre perros, proporciona una sola palabra clave relevante para buscar una imagen en Unsplash: {titulo}
-    """
-    
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "Eres un asistente experto en redacción de artículos SEO."},
-                {"role": "user", "content": prompt}
-            ]
-        )
-        palabra_clave = response.choices[0].message['content'].strip()
-        logging.info("Palabra clave generada: %s", palabra_clave)
-        return palabra_clave
-    except Exception as e:
-        logging.error("Error al generar palabra clave con ChatGPT: %s", e)
-        return "perro"
+ """Genera una palabra clave basada en el título de la noticia usando ChatGPT"""
+ prompt = f"""
+ Basado en el siguiente título de una noticia sobre perros, proporciona una sola palabra clave relevante para buscar una imagen en Unsplash: {titulo}
+ """
+ 
+ try:
+     response = openai.ChatCompletion.create(
+         model="gpt-4",
+         messages=[
+             {"role": "system", "content": "Eres un asistente experto en redacción de artículos SEO."},
+             {"role": "user", "content": prompt}
+         ]
+     )
+     palabra_clave = response.choices[0].message['content'].strip()
+     logging.info("Palabra clave generada: %s", palabra_clave)
+     return palabra_clave
+ except Exception as e:
+     logging.error("Error al generar palabra clave con ChatGPT: %s", e)
+     return "perro"
 
 def buscar_imagen_unsplash(query):
     """Busca una imagen en Unsplash basada en la consulta"""
