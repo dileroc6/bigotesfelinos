@@ -125,25 +125,25 @@ def extraer_titulo_y_limpiar(contenido):
     return "Noticia sobre perros", contenido  # Si no hay <h1>, usa un título genérico
 
 def generar_palabra_clave(titulo):
- """Genera una palabra clave basada en el título de la noticia usando ChatGPT"""
- prompt = f"""
- Basado en el siguiente título de una noticia sobre perros, proporciona una sola palabra clave relevante para buscar una imagen en Unsplash: {titulo}
- """
- 
- try:
-     response = openai.ChatCompletion.create(
-         model="gpt-4",
-         messages=[
-             {"role": "system", "content": "Eres un asistente experto en redacción de artículos SEO."},
-             {"role": "user", "content": prompt}
-         ]
-     )
-     palabra_clave = response.choices[0].message['content'].strip()
-     logging.info("Palabra clave generada: %s", palabra_clave)
-     return palabra_clave
- except Exception as e:
-     logging.error("Error al generar palabra clave con ChatGPT: %s", e)
-     return "perro"
+    """Genera una palabra clave basada en el título de la noticia usando ChatGPT"""
+    client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    prompt = f"""
+    Basado en el siguiente título de una noticia sobre perros, proporciona una sola palabra clave relevante para buscar una imagen en Unsplash: {titulo}
+    """
+    
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[
+            {"role": "system", "content": "Eres un asistente experto en redacción de artículos SEO."},
+            {"role": "user", "content": prompt}
+        ]
+    )
+
+    palabra_clave = response.choices[0].message.content.strip()
+    logging.info("Palabra clave generada: %s", palabra_clave)
+    
+    return palabra_clave
 
 def buscar_imagen_unsplash(query):
     """Busca una imagen en Unsplash basada en la consulta"""
