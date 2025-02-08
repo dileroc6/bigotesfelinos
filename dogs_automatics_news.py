@@ -38,12 +38,16 @@ def obtener_noticias():
 
         noticias = []
         ayer = (datetime.now(TIMEZONE) - timedelta(days=1)).strftime("%d/%m/%Y")
+        logging.info("Fecha de ayer: %s", ayer)
+        
         for articulo in soup.find_all("article"):
             fecha_elemento = articulo.find("time")
-            if fecha_elemento and ayer in fecha_elemento.text:  # Verifica que la fecha sea de ayer
-                link = articulo.find("a")["href"]
-                noticia_url = "https://www.eltiempo.com" + link
-                noticias.append(noticia_url)
+            if fecha_elemento:
+                logging.info("Fecha del artículo: %s", fecha_elemento.text)
+                if ayer in fecha_elemento.text:  # Verifica que la fecha sea de ayer
+                    link = articulo.find("a")["href"]
+                    noticia_url = "https://www.eltiempo.com" + link
+                    noticias.append(noticia_url)
 
         noticias = noticias[:2]  # Máximo 2 noticias nuevas por ejecución
         logging.info("Noticias obtenidas del día anterior: %d", len(noticias))
