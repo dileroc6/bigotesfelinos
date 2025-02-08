@@ -134,7 +134,7 @@ def generar_palabra_clave(titulo):
     client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
     prompt = f"""
-    Basado en el siguiente título de una noticia sobre perros, proporciona una sola palabra clave relevante para buscar una imagen en Unsplash: {titulo}
+    Basado en el siguiente título de una noticia sobre perros, proporciona una sola palabra clave relevante para buscar una imagen en Unsplash que NO sea ni "perro" ni "perros": {titulo}
     """
     
     response = client.chat.completions.create(
@@ -150,7 +150,7 @@ def generar_palabra_clave(titulo):
     
     return palabra_clave
 
-def buscar_imagen_unsplash(query, width=800, height=600):
+def buscar_imagen_unsplash(query, width=1200, height=630):
     """Busca una imagen en Unsplash basada en la consulta y ajusta el tamaño"""
     url = f"https://api.unsplash.com/search/photos?query={query}&client_id={UNSPLASH_ACCESS_KEY}"
     try:
