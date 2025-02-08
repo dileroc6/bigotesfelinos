@@ -92,15 +92,20 @@ def generar_contenido_chatgpt(noticia):
     Si es relevante, incluye un hipervínculo a la fuente de la noticia: <a href='https://www.eltiempo.com/noticias/perros' target='_blank'>El Tiempo</a>.
     """
     
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[
-            {"role": "system", "content": "Eres un asistente experto en redacción de artículos SEO y conocedor de todo lo relacionado con perros."},
-            {"role": "user", "content": prompt}
-        ]
-    )
+    while True:
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": "Eres un asistente experto en redacción de artículos SEO y conocedor de todo lo relacionado con perros."},
+                {"role": "user", "content": prompt}
+            ]
+        )
 
-    contenido = response.choices[0].message.content.strip()
+        contenido = response.choices[0].message.content.strip()
+
+        # Verificar si el contenido incluye un título dentro de <h1>
+        if re.search(r'<h1>(.*?)</h1>', contenido, re.IGNORECASE):
+            break  # Salir del bucle si se encuentra un título
 
     # Asegurarse de que los encabezados h1, h2, h3 tengan la primera letra mayúscula y el resto minúscula
     contenido = formatear_encabezados_html(contenido)
