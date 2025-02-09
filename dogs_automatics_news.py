@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from wordpress_xmlrpc import Client, WordPressPost
 from wordpress_xmlrpc.methods.posts import NewPost, GetPosts, EditPost
-from wordpress_xmlrpc.methods.media import UploadFile, SetPostThumbnail
+from wordpress_xmlrpc.methods.media import UploadFile
 from wordpress_xmlrpc.compat import xmlrpc_client
 import openai
 import re
@@ -200,6 +200,13 @@ def subir_imagen(client, imagen_url):
         logging.error("Error al subir la imagen a WordPress: %s", e)
         return None
 
+def set_post_thumbnail(client, post_id, thumbnail_id):
+    """Establece la imagen destacada de una publicación"""
+    try:
+        client.call(xmlrpc_client.Method('wp.setPostThumbnail'), post_id, thumbnail_id)
+    except Exception as e:
+        logging.error("Error al establecer la imagen destacada: %s", e)
+
 def publicar_noticias():
     """Obtiene noticias, genera contenido y lo publica en WordPress"""
     client = Client(WP_URL, WP_USER, WP_PASSWORD)
@@ -221,7 +228,7 @@ def publicar_noticias():
         post.post_status = "publish"
         post.terms_names = {"category": ["Noticias"]}  # Asegúrate de que la categoría existe
         
-        client.call(NewPost(post))
+        post_id = client.call(NewPost(post))
 
         logging.info("Noticia publicada: %s con título: %s", noticia, titulo)
 
@@ -246,7 +253,7 @@ def actualizar_noticias(client, titulos):
                     posts = client.call(GetPosts({'number': 100, 'post_status': 'publish', 'post_type': 'post'}))
                     for post in posts:
                         if post.title == titulo:
-                            client.call(SetPostThumbnail(post.id, imagen_id))
+                            set_post_thumbnail(client, post.id, imagen_id)
                             logging.info("Entrada actualizada: %s con imagen destacada: %s", titulo, imagen_url)
     except Exception as e:
         logging.error("Error al actualizar noticias: %s", e)
