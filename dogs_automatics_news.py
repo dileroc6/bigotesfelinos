@@ -4,8 +4,8 @@ import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from wordpress_xmlrpc import Client, WordPressPost
-from wordpress_xmlrpc.methods.posts import NewPost, GetPosts, EditPost, SetPostThumbnail
-from wordpress_xmlrpc.methods.media import UploadFile
+from wordpress_xmlrpc.methods.posts import NewPost, GetPosts, EditPost
+from wordpress_xmlrpc.methods.media import UploadFile, SetPostThumbnail
 from wordpress_xmlrpc.compat import xmlrpc_client
 import openai
 import re
