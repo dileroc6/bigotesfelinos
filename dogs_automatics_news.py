@@ -4,11 +4,14 @@ import requests
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from wordpress_xmlrpc import Client, WordPressPost
-from wordpress_xmlrpc.methods.posts import NewPost, GetPosts, EditPost
+from wordpress_xmlrpc.methods.posts import NewPost, GetPosts, EditPost, SetPostThumbnail
+from wordpress_xmlrpc.methods.media import UploadFile
+from wordpress_xmlrpc.compat import xmlrpc_client
 import openai
 import re
 from datetime import datetime, timedelta
 import pytz
+import random
 
 # Cargar variables de entorno
 load_dotenv()
@@ -162,8 +165,10 @@ def buscar_imagen_unsplash(query, width=1200, height=630):
         response.raise_for_status()
         data = response.json()
         if data["results"]:
+            # Seleccionar una imagen aleatoria de los resultados
+            imagen = random.choice(data["results"])
             # Obtener la URL de la imagen y ajustar el tamaño
-            imagen_url = data["results"][0]["urls"]["raw"] + f"&w={width}&h={height}&fit=crop"
+            imagen_url = imagen["urls"]["raw"] + f"&w={width}&h={height}&fit=crop"
             return imagen_url
         else:
             logging.warning("No se encontraron imágenes para la consulta: %s", query)
@@ -171,6 +176,29 @@ def buscar_imagen_unsplash(query, width=1200, height=630):
     except requests.exceptions.RequestException as e:
         logging.error("Error al buscar imagen en Unsplash: %s", e)
         return ""
+
+def subir_imagen(client, imagen_url):
+    """Sube una imagen a la biblioteca de medios de WordPress y devuelve el ID de la imagen"""
+    try:
+        response = requests.get(imagen_url)
+        response.raise_for_status()
+        image_data = response.content
+
+        data = {
+            'name': 'imagen.jpg',
+            'type': 'image/jpeg',  # Cambia esto si la imagen no es JPEG
+            'bits': xmlrpc_client.Binary(image_data),
+            'overwrite': True
+        }
+
+        response = client.call(UploadFile(data))
+        return response['id']
+    except requests.exceptions.RequestException as e:
+        logging.error("Error al descargar la imagen: %s", e)
+        return None
+    except Exception as e:
+        logging.error("Error al subir la imagen a WordPress: %s", e)
+        return None
 
 def publicar_noticias():
     """Obtiene noticias, genera contenido y lo publica en WordPress"""
@@ -213,12 +241,13 @@ def actualizar_noticias(client, titulos):
             query = f"perro {palabra_clave}"
             imagen_url = buscar_imagen_unsplash(query, width=1200, height=630)
             if imagen_url:
-                posts = client.call(GetPosts({'number': 100, 'post_status': 'publish', 'post_type': 'post'}))
-                for post in posts:
-                    if post.title == titulo:
-                        post.content = f'<img src="{imagen_url}" alt="{titulo}"><br>' + post.content
-                        client.call(EditPost(post.id, post))
-                        logging.info("Entrada actualizada: %s con imagen: %s", titulo, imagen_url)
+                imagen_id = subir_imagen(client, imagen_url)
+                if imagen_id:
+                    posts = client.call(GetPosts({'number': 100, 'post_status': 'publish', 'post_type': 'post'}))
+                    for post in posts:
+                        if post.title == titulo:
+                            client.call(SetPostThumbnail(post.id, imagen_id))
+                            logging.info("Entrada actualizada: %s con imagen destacada: %s", titulo, imagen_url)
     except Exception as e:
         logging.error("Error al actualizar noticias: %s", e)
 
