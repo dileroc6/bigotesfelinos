@@ -29,7 +29,7 @@ jobs:
         run: |
           touch proceso_noticias.log
 
-      - name: Ejecutar script de publicación
+      - name: Ejecutar script de publicacion
         env:
           WP_URL: ${{ secrets.WP_URL }}
           WP_USER: ${{ secrets.WP_USER }}
