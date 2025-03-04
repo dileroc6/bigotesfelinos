@@ -33,9 +33,9 @@ openai.api_key = OPENAI_API_KEY
 TIMEZONE = pytz.timezone("America/Bogota")  # Cambia esto a la zona horaria que necesites
 
 def obtener_noticias():
-    """Obtiene noticias nuevas de El Espectador"""
+    """Obtiene noticias nuevas de El Tiempo"""
     try:
-        response = requests.get("https://www.elespectador.com/la-red-zoocial/perros")
+        response = requests.get("https://www.eltiempo.com/noticias/perros")
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
 
@@ -63,7 +63,7 @@ def obtener_noticias():
                     logging.info("Fecha del artículo formateada: %s", fecha_articulo)
                     if fecha_articulo == ayer:  # Verifica que la fecha sea de ayer
                         link = articulo.find("a")["href"]
-                        noticia_url = "https://www.elespectador.com" + link
+                        noticia_url = "https://www.eltiempo.com" + link
                         noticias.append(noticia_url)
 
         noticias = noticias[:2]  # Máximo 2 noticias nuevas por ejecución
@@ -92,7 +92,7 @@ def generar_contenido_chatgpt(noticia):
 
     Los títulos deben ser concisos, llamativos y escritos en minúsculas, excepto la primera letra.
 
-    Si es relevante, incluye un hipervínculo a la fuente de la noticia: <a href='https://www.elespectador.com/la-red-zoocial/perros' target='_blank'>El Espectador</a>.
+    Si es relevante, incluye un hipervínculo a la fuente de la noticia: <a href='https://www.eltiempo.com/noticias/perros' target='_blank'>El Tiempo</a>.
     """
     
     while True:
